@@ -25,22 +25,16 @@ const SpeechToText = () => {
     ];
 
     useEffect(() => {
-        // Initialize audio recording
         const options = {
             sampleRate: 16000,
             channels: 1,
             bitsPerSample: 16,
             audioSource: 6, // VOICE_RECOGNITION
-            wavFile: 'audio.wav'
+            wavFile: 'audio.wav',
         };
         AudioRecord.init(options);
-
-        // Request microphone permission on Android
         requestMicrophonePermission();
-
-        // Check if local Whisper server is running
         checkWhisperServer();
-
         return () => {
             AudioRecord.stop();
         };
@@ -51,10 +45,14 @@ const SpeechToText = () => {
             setCheckingServer(true);
             setRecognizedText('Checking local Whisper server...');
 
+            // Use AbortController instead of unsupported fetch timeout
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 25000); // 25s for health
             const response = await fetch(`${serverUrl}/health`, {
                 method: 'GET',
-                timeout: 5000,
+                signal: controller.signal,
             });
+            clearTimeout(id);
 
             if (response.ok) {
                 setServerReady(true);
@@ -103,51 +101,44 @@ const SpeechToText = () => {
             setIsProcessing(true);
             setRecognizedText('Processing with local Whisper AI...');
 
-            // Read audio file as base64
-            const audioData = await RNFS.readFile(audioFilePath, 'base64');
+            // DO NOT read as base64 for large files (memory heavy) — remove the RNFS.readFile call
 
-            // Create form data for the API request
+            // Build multipart form data with file URI
             const formData = new FormData();
             formData.append('file', {
                 uri: `file://${audioFilePath}`,
                 type: 'audio/wav',
                 name: 'audio.wav',
             });
+            formData.append('language', selectedLang || 'auto');
 
-            if (selectedLang !== 'auto') {
-                formData.append('language', selectedLang);
-            } else {
-                formData.append('language', 'auto');
-            }
-
-            // Send to local Whisper server
+            // Don’t set Content-Type: multipart/form-data manually (boundary issues).
+            // Use AbortController for a real (long) timeout.
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 300000); // 5 minutes
             const response = await fetch(`${serverUrl}/transcribe`, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-                timeout: 30000, // 30 second timeout
+                signal: controller.signal,
             });
+            clearTimeout(id);
 
             if (!response.ok) {
                 throw new Error(`Server error: ${response.status} ${response.statusText}`);
             }
 
             const result = await response.json();
-
             if (result && result.text) {
                 setRecognizedText(result.text.trim() || 'No speech detected in the audio.');
             } else {
                 setRecognizedText('No speech detected in the audio.');
             }
-
         } catch (error) {
             console.error('Local Whisper error:', error);
-            if (error.message.includes('timeout')) {
-                setRecognizedText('Request timed out. The audio file might be too long or the server is busy.');
-            } else if (error.message.includes('Network')) {
-                setRecognizedText('Network error. Check if the Whisper server is running.');
+            if (error.name === 'AbortError') {
+                setRecognizedText('Request timed out. Try shorter segments or better Wi‑Fi.');
+            } else if ((error.message || '').includes('Network')) {
+                setRecognizedText('Network error. Check if the Whisper server is running and reachable.');
             } else {
                 setRecognizedText(`Error: ${error.message || 'Failed to transcribe audio'}`);
             }
@@ -161,6 +152,10 @@ const SpeechToText = () => {
             setIsListening(true);
             setRecognizedText('Recording...');
             AudioRecord.start();
+
+            // Optional: auto-stop long recordings to avoid giant uploads (e.g., 25s chunks)
+            // setTimeout(() => { if (isListening) stopListening(); }, 25000);
+
         } catch (error) {
             console.error('Error starting recording:', error);
             setIsListening(false);
