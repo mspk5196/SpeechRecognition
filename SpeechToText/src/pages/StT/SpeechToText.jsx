@@ -8,6 +8,10 @@ import {API_URL} from '../../util/env';
 
 const SpeechToText = () => {
     const [recognizedText, setRecognizedText] = useState('');
+    const [translationMode, setTranslationMode] = useState('none'); // none | literal | high_level
+    const [runNlp, setRunNlp] = useState(true);
+    const [nlpResult, setNlpResult] = useState(null);
+    const [commandText, setCommandText] = useState('');
     const [isListening, setIsListening] = useState(false);
     const [selectedLang, setSelectedLang] = useState('en');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -112,6 +116,9 @@ const SpeechToText = () => {
                 name: 'audio.wav',
             });
             formData.append('language', selectedLang || 'auto');
+            formData.append('translate_if_tamil', 'true'); // always get English if Tamil
+            formData.append('translation_mode', translationMode);
+            formData.append('run_nlp', runNlp ? 'true' : 'false');
 
             // Don’t set Content-Type: multipart/form-data manually (boundary issues).
             // Use AbortController for a real (long) timeout.
@@ -129,10 +136,18 @@ const SpeechToText = () => {
             }
 
             const result = await response.json();
-            if (result && result.text) {
-                setRecognizedText(result.text.trim() || 'No speech detected in the audio.');
+            if (result) {
+                // Choose display text: prefer high-level, then literal, then whisper translation, then original
+                const display = result.high_level_translation || result.literal_translation || result.translation_text || result.text;
+                setRecognizedText(display ? display.trim() : 'No speech detected in the audio.');
+                setNlpResult(result.nlp || null);
+                setCommandText(result.command_text || '');
+                console.log('Transcription result:', result);
+                
             } else {
                 setRecognizedText('No speech detected in the audio.');
+                setNlpResult(null);
+                setCommandText('');
             }
         } catch (error) {
             console.error('Local Whisper error:', error);
@@ -194,6 +209,28 @@ const SpeechToText = () => {
                 />
             </View>
 
+            <Text style={styles.label}>Translation Mode:</Text>
+            <View style={styles.pickerContainer}>
+                <Picker
+                    selectedValue={translationMode}
+                    onValueChange={(val) => setTranslationMode(val)}
+                    style={styles.picker}
+                >
+                    <Picker.Item label="None" value="none" />
+                    <Picker.Item label="Literal (MT)" value="literal" />
+                    <Picker.Item label="High-Level Summary" value="high_level" />
+                </Picker>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
+                <Button
+                    title={runNlp ? 'Disable NLP' : 'Enable NLP'}
+                    onPress={() => setRunNlp(!runNlp)}
+                    color={runNlp ? '#ff9800' : '#2196f3'}
+                />
+                <Text style={{ marginLeft: 12 }}>NLP: {runNlp ? 'ON' : 'OFF'}</Text>
+            </View>
+
             <Text style={styles.label}>Select Language:</Text>
             <View style={styles.pickerContainer}>
                 <Picker
@@ -249,12 +286,26 @@ const SpeechToText = () => {
                 </View>
             )}
 
-            <Text style={styles.resultLabel}>Transcribed Text:</Text>
+            <Text style={styles.resultLabel}>Transcribed / Translated Text:</Text>
             <View style={styles.resultBox}>
                 <Text style={styles.resultText}>
                     {recognizedText || 'Your speech will appear here...'}
                 </Text>
             </View>
+
+            {nlpResult && (
+                <View style={[styles.resultBox, { backgroundColor: '#eef6ff', borderColor: '#90caf9' }] }>
+                    <Text style={[styles.resultLabel, { marginTop: 0 }]}>Detected Command Intent:</Text>
+                    <Text style={styles.resultText}>Intent: {nlpResult.intent}</Text>
+                    <Text style={styles.resultText}>Score: {nlpResult.score?.toFixed(3)}</Text>
+                    {nlpResult.entities && Object.keys(nlpResult.entities).length > 0 && (
+                        <Text style={styles.resultText}>Entities: {Object.entries(nlpResult.entities).map(([k,v]) => `${k}=${v}`).join(', ')}</Text>
+                    )}
+                    {commandText ? (
+                        <Text style={[styles.resultText, { marginTop: 6, fontWeight: '600' }]}>Command: {commandText}</Text>
+                    ) : null}
+                </View>
+            )}
 
             {!serverReady && !checkingServer && (
                 <View style={styles.warningContainer}>

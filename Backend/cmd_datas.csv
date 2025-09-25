@@ -1,0 +1,301 @@
+text,intent,entities
+Show playback from 10:00 to 11:00 last week,playback,start_time=10:00;end_time=11:00;date=last week
+நேற்று முன் நாள் 10 மணி முதல் 11 மணி வரை பதிவு காண்பி,playback,start_time=10 மணி;end_time=10 மணி முதல் 11 மணி;date=நேற்று முன் நாள்
+Show playback from 11:00 to 13:00 last week,playback,start_time=11:00;end_time=13:00;date=last week
+நேற்று 11 மணி முதல் 13 மணி வரை பதிவு காண்பி,playback,start_time=11 மணி;end_time=11 மணி முதல் 13 மணி;date=நேற்று
+Show playback from 15:00 to 16:00 day before yesterday,playback,start_time=15:00;end_time=16:00;date=day before yesterday
+கடந்த வாரம் 15 மணி முதல் 16 மணி வரை பதிவு காண்பி,playback,start_time=15 மணி;end_time=15 மணி முதல் 16 மணி;date=கடந்த வாரம்
+Show playback from 4:00 to 5:00 yesterday,playback,start_time=4:00;end_time=5:00;date=yesterday
+நேற்று 4 மணி முதல் 5 மணி வரை பதிவு காண்பி,playback,start_time=4 மணி;end_time=4 மணி முதல் 5 மணி;date=நேற்று
+Show playback from 19:00 to 20:00 last month,playback,start_time=19:00;end_time=20:00;date=last month
+நேற்று 19 மணி முதல் 20 மணி வரை பதிவு காண்பி,playback,start_time=19 மணி;end_time=19 மணி முதல் 20 மணி;date=நேற்று
+Show playback from 6:00 to 8:00 day before yesterday,playback,start_time=6:00;end_time=8:00;date=day before yesterday
+கடந்த வாரம் 6 மணி முதல் 8 மணி வரை பதிவு காண்பி,playback,start_time=6 மணி;end_time=6 மணி முதல் 8 மணி;date=கடந்த வாரம்
+Show playback from 15:00 to 18:00 day before yesterday,playback,start_time=15:00;end_time=18:00;date=day before yesterday
+நேற்று முன் நாள் 15 மணி முதல் 18 மணி வரை பதிவு காண்பி,playback,start_time=15 மணி;end_time=15 மணி முதல் 18 மணி;date=நேற்று முன் நாள்
+Show playback from 10:00 to 12:00 today,playback,start_time=10:00;end_time=12:00;date=today
+இன்று 10 மணி முதல் 12 மணி வரை பதிவு காண்பி,playback,start_time=10 மணி;end_time=10 மணி முதல் 12 மணி;date=இன்று
+Show playback from 13:00 to 16:00 last month,playback,start_time=13:00;end_time=16:00;date=last month
+நேற்று முன் நாள் 13 மணி முதல் 16 மணி வரை பதிவு காண்பி,playback,start_time=13 மணி;end_time=13 மணி முதல் 16 மணி;date=நேற்று முன் நாள்
+Show playback from 21:00 to 0:00 day before yesterday,playback,start_time=21:00;end_time=0:00;date=day before yesterday
+கடந்த மாதம் 21 மணி முதல் 0 மணி வரை பதிவு காண்பி,playback,start_time=21 மணி;end_time=21 மணி முதல் 0 மணி;date=கடந்த மாதம்
+Show playback from 16:00 to 18:00 last week,playback,start_time=16:00;end_time=18:00;date=last week
+கடந்த வாரம் 16 மணி முதல் 18 மணி வரை பதிவு காண்பி,playback,start_time=16 மணி;end_time=16 மணி முதல் 18 மணி;date=கடந்த வாரம்
+Show playback from 0:00 to 3:00 last month,playback,start_time=0:00;end_time=3:00;date=last month
+நேற்று 0 மணி முதல் 3 மணி வரை பதிவு காண்பி,playback,start_time=0 மணி;end_time=0 மணி முதல் 3 மணி;date=நேற்று
+Show playback from 6:00 to 7:00 last month,playback,start_time=6:00;end_time=7:00;date=last month
+கடந்த மாதம் 6 மணி முதல் 7 மணி வரை பதிவு காண்பி,playback,start_time=6 மணி;end_time=6 மணி முதல் 7 மணி;date=கடந்த மாதம்
+Show playback from 22:00 to 23:00 today,playback,start_time=22:00;end_time=23:00;date=today
+நேற்று முன் நாள் 22 மணி முதல் 23 மணி வரை பதிவு காண்பி,playback,start_time=22 மணி;end_time=22 மணி முதல் 23 மணி;date=நேற்று முன் நாள்
+Show playback from 0:00 to 3:00 last month,playback,start_time=0:00;end_time=3:00;date=last month
+நேற்று முன் நாள் 0 மணி முதல் 3 மணி வரை பதிவு காண்பி,playback,start_time=0 மணி;end_time=0 மணி முதல் 3 மணி;date=நேற்று முன் நாள்
+Show playback from 13:00 to 16:00 day before yesterday,playback,start_time=13:00;end_time=16:00;date=day before yesterday
+நேற்று 13 மணி முதல் 16 மணி வரை பதிவு காண்பி,playback,start_time=13 மணி;end_time=13 மணி முதல் 16 மணி;date=நேற்று
+Show playback from 8:00 to 10:00 last week,playback,start_time=8:00;end_time=10:00;date=last week
+நேற்று 8 மணி முதல் 10 மணி வரை பதிவு காண்பி,playback,start_time=8 மணி;end_time=8 மணி முதல் 10 மணி;date=நேற்று
+Show playback from 6:00 to 9:00 last month,playback,start_time=6:00;end_time=9:00;date=last month
+நேற்று முன் நாள் 6 மணி முதல் 9 மணி வரை பதிவு காண்பி,playback,start_time=6 மணி;end_time=6 மணி முதல் 9 மணி;date=நேற்று முன் நாள்
+Show playback from 10:00 to 13:00 today,playback,start_time=10:00;end_time=13:00;date=today
+இன்று 10 மணி முதல் 13 மணி வரை பதிவு காண்பி,playback,start_time=10 மணி;end_time=10 மணி முதல் 13 மணி;date=இன்று
+Show playback from 10:00 to 12:00 yesterday,playback,start_time=10:00;end_time=12:00;date=yesterday
+கடந்த மாதம் 10 மணி முதல் 12 மணி வரை பதிவு காண்பி,playback,start_time=10 மணி;end_time=10 மணி முதல் 12 மணி;date=கடந்த மாதம்
+Show playback from 19:00 to 21:00 today,playback,start_time=19:00;end_time=21:00;date=today
+நேற்று முன் நாள் 19 மணி முதல் 21 மணி வரை பதிவு காண்பி,playback,start_time=19 மணி;end_time=19 மணி முதல் 21 மணி;date=நேற்று முன் நாள்
+Show playback from 23:00 to 1:00 day before yesterday,playback,start_time=23:00;end_time=1:00;date=day before yesterday
+நேற்று முன் நாள் 23 மணி முதல் 1 மணி வரை பதிவு காண்பி,playback,start_time=23 மணி;end_time=23 மணி முதல் 1 மணி;date=நேற்று முன் நாள்
+Show playback from 14:00 to 15:00 last month,playback,start_time=14:00;end_time=15:00;date=last month
+இன்று 14 மணி முதல் 15 மணி வரை பதிவு காண்பி,playback,start_time=14 மணி;end_time=14 மணி முதல் 15 மணி;date=இன்று
+Show playback from 6:00 to 8:00 day before yesterday,playback,start_time=6:00;end_time=8:00;date=day before yesterday
+கடந்த மாதம் 6 மணி முதல் 8 மணி வரை பதிவு காண்பி,playback,start_time=6 மணி;end_time=6 மணி முதல் 8 மணி;date=கடந்த மாதம்
+Show playback from 7:00 to 10:00 today,playback,start_time=7:00;end_time=10:00;date=today
+நேற்று முன் நாள் 7 மணி முதல் 10 மணி வரை பதிவு காண்பி,playback,start_time=7 மணி;end_time=7 மணி முதல் 10 மணி;date=நேற்று முன் நாள்
+Show playback from 2:00 to 4:00 last month,playback,start_time=2:00;end_time=4:00;date=last month
+கடந்த வாரம் 2 மணி முதல் 4 மணி வரை பதிவு காண்பி,playback,start_time=2 மணி;end_time=2 மணி முதல் 4 மணி;date=கடந்த வாரம்
+Show playback from 17:00 to 19:00 today,playback,start_time=17:00;end_time=19:00;date=today
+கடந்த மாதம் 17 மணி முதல் 19 மணி வரை பதிவு காண்பி,playback,start_time=17 மணி;end_time=17 மணி முதல் 19 மணி;date=கடந்த மாதம்
+Show playback from 4:00 to 5:00 last month,playback,start_time=4:00;end_time=5:00;date=last month
+கடந்த மாதம் 4 மணி முதல் 5 மணி வரை பதிவு காண்பி,playback,start_time=4 மணி;end_time=4 மணி முதல் 5 மணி;date=கடந்த மாதம்
+Show playback from 9:00 to 11:00 last week,playback,start_time=9:00;end_time=11:00;date=last week
+இன்று 9 மணி முதல் 11 மணி வரை பதிவு காண்பி,playback,start_time=9 மணி;end_time=9 மணி முதல் 11 மணி;date=இன்று
+Show playback from 15:00 to 18:00 today,playback,start_time=15:00;end_time=18:00;date=today
+நேற்று முன் நாள் 15 மணி முதல் 18 மணி வரை பதிவு காண்பி,playback,start_time=15 மணி;end_time=15 மணி முதல் 18 மணி;date=நேற்று முன் நாள்
+Show playback from 3:00 to 4:00 day before yesterday,playback,start_time=3:00;end_time=4:00;date=day before yesterday
+கடந்த மாதம் 3 மணி முதல் 4 மணி வரை பதிவு காண்பி,playback,start_time=3 மணி;end_time=3 மணி முதல் 4 மணி;date=கடந்த மாதம்
+Show playback from 13:00 to 15:00 day before yesterday,playback,start_time=13:00;end_time=15:00;date=day before yesterday
+நேற்று முன் நாள் 13 மணி முதல் 15 மணி வரை பதிவு காண்பி,playback,start_time=13 மணி;end_time=13 மணி முதல் 15 மணி;date=நேற்று முன் நாள்
+Show playback from 4:00 to 7:00 day before yesterday,playback,start_time=4:00;end_time=7:00;date=day before yesterday
+நேற்று 4 மணி முதல் 7 மணி வரை பதிவு காண்பி,playback,start_time=4 மணி;end_time=4 மணி முதல் 7 மணி;date=நேற்று
+Show playback from 4:00 to 7:00 day before yesterday,playback,start_time=4:00;end_time=7:00;date=day before yesterday
+நேற்று 4 மணி முதல் 7 மணி வரை பதிவு காண்பி,playback,start_time=4 மணி;end_time=4 மணி முதல் 7 மணி;date=நேற்று
+Show playback from 17:00 to 18:00 last week,playback,start_time=17:00;end_time=18:00;date=last week
+கடந்த மாதம் 17 மணி முதல் 18 மணி வரை பதிவு காண்பி,playback,start_time=17 மணி;end_time=17 மணி முதல் 18 மணி;date=கடந்த மாதம்
+Show playback from 3:00 to 5:00 yesterday,playback,start_time=3:00;end_time=5:00;date=yesterday
+கடந்த மாதம் 3 மணி முதல் 5 மணி வரை பதிவு காண்பி,playback,start_time=3 மணி;end_time=3 மணி முதல் 5 மணி;date=கடந்த மாதம்
+Show playback from 12:00 to 13:00 last week,playback,start_time=12:00;end_time=13:00;date=last week
+இன்று 12 மணி முதல் 13 மணி வரை பதிவு காண்பி,playback,start_time=12 மணி;end_time=12 மணி முதல் 13 மணி;date=இன்று
+Show playback from 5:00 to 6:00 yesterday,playback,start_time=5:00;end_time=6:00;date=yesterday
+நேற்று முன் நாள் 5 மணி முதல் 6 மணி வரை பதிவு காண்பி,playback,start_time=5 மணி;end_time=5 மணி முதல் 6 மணி;date=நேற்று முன் நாள்
+Show playback from 19:00 to 22:00 today,playback,start_time=19:00;end_time=22:00;date=today
+நேற்று 19 மணி முதல் 22 மணி வரை பதிவு காண்பி,playback,start_time=19 மணி;end_time=19 மணி முதல் 22 மணி;date=நேற்று
+Show playback from 18:00 to 21:00 last week,playback,start_time=18:00;end_time=21:00;date=last week
+நேற்று 18 மணி முதல் 21 மணி வரை பதிவு காண்பி,playback,start_time=18 மணி;end_time=18 மணி முதல் 21 மணி;date=நேற்று
+Show playback from 19:00 to 21:00 today,playback,start_time=19:00;end_time=21:00;date=today
+கடந்த மாதம் 19 மணி முதல் 21 மணி வரை பதிவு காண்பி,playback,start_time=19 மணி;end_time=19 மணி முதல் 21 மணி;date=கடந்த மாதம்
+Show playback from 2:00 to 4:00 yesterday,playback,start_time=2:00;end_time=4:00;date=yesterday
+கடந்த வாரம் 2 மணி முதல் 4 மணி வரை பதிவு காண்பி,playback,start_time=2 மணி;end_time=2 மணி முதல் 4 மணி;date=கடந்த வாரம்
+Show playback from 17:00 to 18:00 day before yesterday,playback,start_time=17:00;end_time=18:00;date=day before yesterday
+கடந்த வாரம் 17 மணி முதல் 18 மணி வரை பதிவு காண்பி,playback,start_time=17 மணி;end_time=17 மணி முதல் 18 மணி;date=கடந்த வாரம்
+Show playback from 13:00 to 14:00 last week,playback,start_time=13:00;end_time=14:00;date=last week
+இன்று 13 மணி முதல் 14 மணி வரை பதிவு காண்பி,playback,start_time=13 மணி;end_time=13 மணி முதல் 14 மணி;date=இன்று
+Show playback from 14:00 to 17:00 last month,playback,start_time=14:00;end_time=17:00;date=last month
+நேற்று முன் நாள் 14 மணி முதல் 17 மணி வரை பதிவு காண்பி,playback,start_time=14 மணி;end_time=14 மணி முதல் 17 மணி;date=நேற்று முன் நாள்
+Show playback from 12:00 to 13:00 day before yesterday,playback,start_time=12:00;end_time=13:00;date=day before yesterday
+நேற்று 12 மணி முதல் 13 மணி வரை பதிவு காண்பி,playback,start_time=12 மணி;end_time=12 மணி முதல் 13 மணி;date=நேற்று
+Show playback from 0:00 to 2:00 last month,playback,start_time=0:00;end_time=2:00;date=last month
+நேற்று முன் நாள் 0 மணி முதல் 2 மணி வரை பதிவு காண்பி,playback,start_time=0 மணி;end_time=0 மணி முதல் 2 மணி;date=நேற்று முன் நாள்
+Show playback from 0:00 to 2:00 day before yesterday,playback,start_time=0:00;end_time=2:00;date=day before yesterday
+இன்று 0 மணி முதல் 2 மணி வரை பதிவு காண்பி,playback,start_time=0 மணி;end_time=0 மணி முதல் 2 மணி;date=இன்று
+Show playback from 11:00 to 12:00 last month,playback,start_time=11:00;end_time=12:00;date=last month
+இன்று 11 மணி முதல் 12 மணி வரை பதிவு காண்பி,playback,start_time=11 மணி;end_time=11 மணி முதல் 12 மணி;date=இன்று
+Show playback from 18:00 to 20:00 last month,playback,start_time=18:00;end_time=20:00;date=last month
+நேற்று 18 மணி முதல் 20 மணி வரை பதிவு காண்பி,playback,start_time=18 மணி;end_time=18 மணி முதல் 20 மணி;date=நேற்று
+Show playback from 7:00 to 9:00 day before yesterday,playback,start_time=7:00;end_time=9:00;date=day before yesterday
+இன்று 7 மணி முதல் 9 மணி வரை பதிவு காண்பி,playback,start_time=7 மணி;end_time=7 மணி முதல் 9 மணி;date=இன்று
+Show playback from 3:00 to 5:00 last week,playback,start_time=3:00;end_time=5:00;date=last week
+நேற்று முன் நாள் 3 மணி முதல் 5 மணி வரை பதிவு காண்பி,playback,start_time=3 மணி;end_time=3 மணி முதல் 5 மணி;date=நேற்று முன் நாள்
+Show playback from 4:00 to 7:00 day before yesterday,playback,start_time=4:00;end_time=7:00;date=day before yesterday
+நேற்று முன் நாள் 4 மணி முதல் 7 மணி வரை பதிவு காண்பி,playback,start_time=4 மணி;end_time=4 மணி முதல் 7 மணி;date=நேற்று முன் நாள்
+Show playback from 21:00 to 0:00 day before yesterday,playback,start_time=21:00;end_time=0:00;date=day before yesterday
+கடந்த மாதம் 21 மணி முதல் 0 மணி வரை பதிவு காண்பி,playback,start_time=21 மணி;end_time=21 மணி முதல் 0 மணி;date=கடந்த மாதம்
+Show playback from 4:00 to 7:00 last month,playback,start_time=4:00;end_time=7:00;date=last month
+நேற்று முன் நாள் 4 மணி முதல் 7 மணி வரை பதிவு காண்பி,playback,start_time=4 மணி;end_time=4 மணி முதல் 7 மணி;date=நேற்று முன் நாள்
+Show playback from 21:00 to 22:00 last week,playback,start_time=21:00;end_time=22:00;date=last week
+நேற்று 21 மணி முதல் 22 மணி வரை பதிவு காண்பி,playback,start_time=21 மணி;end_time=21 மணி முதல் 22 மணி;date=நேற்று
+Show playback from 5:00 to 8:00 yesterday,playback,start_time=5:00;end_time=8:00;date=yesterday
+நேற்று 5 மணி முதல் 8 மணி வரை பதிவு காண்பி,playback,start_time=5 மணி;end_time=5 மணி முதல் 8 மணி;date=நேற்று
+Show playback from 20:00 to 22:00 today,playback,start_time=20:00;end_time=22:00;date=today
+கடந்த மாதம் 20 மணி முதல் 22 மணி வரை பதிவு காண்பி,playback,start_time=20 மணி;end_time=20 மணி முதல் 22 மணி;date=கடந்த மாதம்
+Show playback from 16:00 to 19:00 last month,playback,start_time=16:00;end_time=19:00;date=last month
+நேற்று முன் நாள் 16 மணி முதல் 19 மணி வரை பதிவு காண்பி,playback,start_time=16 மணி;end_time=16 மணி முதல் 19 மணி;date=நேற்று முன் நாள்
+Show playback from 11:00 to 14:00 day before yesterday,playback,start_time=11:00;end_time=14:00;date=day before yesterday
+இன்று 11 மணி முதல் 14 மணி வரை பதிவு காண்பி,playback,start_time=11 மணி;end_time=11 மணி முதல் 14 மணி;date=இன்று
+Move camera down in garden,ptz,direction=down;location=garden
+கேமரா கீழ் முன்னணி மாளிகை நகர்த்து,ptz,direction=down;location=முன்னணி மாளிகை
+Move camera down in parking,ptz,direction=down;location=parking
+கேமரா கீழ் லாபி நகர்த்து,ptz,direction=down;location=லாபி
+Move camera right in parking,ptz,direction=right;location=parking
+கேமரா வலது லாபி நகர்த்து,ptz,direction=right;location=லாபி
+Move camera up in lobby,ptz,direction=up;location=lobby
+கேமரா மேல் லாபி நகர்த்து,ptz,direction=up;location=லாபி
+Move camera right in garden,ptz,direction=right;location=garden
+கேமரா வலது மெயின் ஹால் நகர்த்து,ptz,direction=right;location=மெயின் ஹால்
+Move camera up in parking,ptz,direction=up;location=parking
+கேமரா மேல் முன்னணி மாளிகை நகர்த்து,ptz,direction=up;location=முன்னணி மாளிகை
+Move camera right in lobby,ptz,direction=right;location=lobby
+கேமரா வலது வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=right;location=வாகன நிறுத்த இடம்
+Move camera right in parking,ptz,direction=right;location=parking
+கேமரா வலது முகப்பு தோட்டம் நகர்த்து,ptz,direction=right;location=முகப்பு தோட்டம்
+Move camera up in lobby,ptz,direction=up;location=lobby
+கேமரா மேல் மெயின் ஹால் நகர்த்து,ptz,direction=up;location=மெயின் ஹால்
+Move camera right in main hall,ptz,direction=right;location=main hall
+கேமரா வலது முன்னணி மாளிகை நகர்த்து,ptz,direction=right;location=முன்னணி மாளிகை
+Move camera left in main hall,ptz,direction=left;location=main hall
+கேமரா இடது வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=left;location=வாகன நிறுத்த இடம்
+Move camera right in front building,ptz,direction=right;location=front building
+கேமரா வலது மெயின் ஹால் நகர்த்து,ptz,direction=right;location=மெயின் ஹால்
+Move camera up in garden,ptz,direction=up;location=garden
+கேமரா மேல் மெயின் ஹால் நகர்த்து,ptz,direction=up;location=மெயின் ஹால்
+Move camera right in lobby,ptz,direction=right;location=lobby
+கேமரா வலது வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=right;location=வாகன நிறுத்த இடம்
+Move camera down in parking,ptz,direction=down;location=parking
+கேமரா கீழ் முன்னணி மாளிகை நகர்த்து,ptz,direction=down;location=முன்னணி மாளிகை
+Move camera right in main hall,ptz,direction=right;location=main hall
+கேமரா வலது வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=right;location=வாகன நிறுத்த இடம்
+Move camera left in lobby,ptz,direction=left;location=lobby
+கேமரா இடது வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=left;location=வாகன நிறுத்த இடம்
+Move camera down in parking,ptz,direction=down;location=parking
+கேமரா கீழ் லாபி நகர்த்து,ptz,direction=down;location=லாபி
+Move camera left in lobby,ptz,direction=left;location=lobby
+கேமரா இடது மெயின் ஹால் நகர்த்து,ptz,direction=left;location=மெயின் ஹால்
+Move camera down in garden,ptz,direction=down;location=garden
+கேமரா கீழ் மெயின் ஹால் நகர்த்து,ptz,direction=down;location=மெயின் ஹால்
+Move camera down in lobby,ptz,direction=down;location=lobby
+கேமரா கீழ் வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=down;location=வாகன நிறுத்த இடம்
+Move camera left in garden,ptz,direction=left;location=garden
+கேமரா இடது முன்னணி மாளிகை நகர்த்து,ptz,direction=left;location=முன்னணி மாளிகை
+Move camera up in lobby,ptz,direction=up;location=lobby
+கேமரா மேல் முகப்பு தோட்டம் நகர்த்து,ptz,direction=up;location=முகப்பு தோட்டம்
+Move camera left in front building,ptz,direction=left;location=front building
+கேமரா இடது முகப்பு தோட்டம் நகர்த்து,ptz,direction=left;location=முகப்பு தோட்டம்
+Move camera up in parking,ptz,direction=up;location=parking
+கேமரா மேல் வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=up;location=வாகன நிறுத்த இடம்
+Move camera right in parking,ptz,direction=right;location=parking
+கேமரா வலது முகப்பு தோட்டம் நகர்த்து,ptz,direction=right;location=முகப்பு தோட்டம்
+Move camera right in parking,ptz,direction=right;location=parking
+கேமரா வலது வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=right;location=வாகன நிறுத்த இடம்
+Move camera up in lobby,ptz,direction=up;location=lobby
+கேமரா மேல் வாகன நிறுத்த இடம் நகர்த்து,ptz,direction=up;location=வாகன நிறுத்த இடம்
+Move camera down in parking,ptz,direction=down;location=parking
+கேமரா கீழ் மெயின் ஹால் நகர்த்து,ptz,direction=down;location=மெயின் ஹால்
+Move camera down in garden,ptz,direction=down;location=garden
+கேமரா கீழ் மெயின் ஹால் நகர்த்து,ptz,direction=down;location=மெயின் ஹால்
+Any movement in the garden?,motion_check,location=garden
+லாபி இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=லாபி
+Any movement in the lobby?,motion_check,location=lobby
+வாகன நிறுத்த இடம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=வாகன நிறுத்த இடம்
+Any movement in the main hall?,motion_check,location=main hall
+லாபி இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=லாபி
+Any movement in the lobby?,motion_check,location=lobby
+மெயின் ஹால் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=மெயின் ஹால்
+Any movement in the main hall?,motion_check,location=main hall
+மெயின் ஹால் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=மெயின் ஹால்
+Any movement in the main hall?,motion_check,location=main hall
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the front building?,motion_check,location=front building
+வாகன நிறுத்த இடம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=வாகன நிறுத்த இடம்
+Any movement in the garden?,motion_check,location=garden
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the parking?,motion_check,location=parking
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the garden?,motion_check,location=garden
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the parking?,motion_check,location=parking
+வாகன நிறுத்த இடம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=வாகன நிறுத்த இடம்
+Any movement in the garden?,motion_check,location=garden
+முன்னணி மாளிகை இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முன்னணி மாளிகை
+Any movement in the main hall?,motion_check,location=main hall
+லாபி இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=லாபி
+Any movement in the main hall?,motion_check,location=main hall
+வாகன நிறுத்த இடம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=வாகன நிறுத்த இடம்
+Any movement in the lobby?,motion_check,location=lobby
+மெயின் ஹால் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=மெயின் ஹால்
+Any movement in the parking?,motion_check,location=parking
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the parking?,motion_check,location=parking
+வாகன நிறுத்த இடம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=வாகன நிறுத்த இடம்
+Any movement in the parking?,motion_check,location=parking
+முன்னணி மாளிகை இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முன்னணி மாளிகை
+Any movement in the main hall?,motion_check,location=main hall
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the front building?,motion_check,location=front building
+மெயின் ஹால் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=மெயின் ஹால்
+Any movement in the main hall?,motion_check,location=main hall
+லாபி இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=லாபி
+Any movement in the main hall?,motion_check,location=main hall
+மெயின் ஹால் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=மெயின் ஹால்
+Any movement in the front building?,motion_check,location=front building
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the lobby?,motion_check,location=lobby
+லாபி இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=லாபி
+Any movement in the garden?,motion_check,location=garden
+வாகன நிறுத்த இடம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=வாகன நிறுத்த இடம்
+Any movement in the garden?,motion_check,location=garden
+வாகன நிறுத்த இடம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=வாகன நிறுத்த இடம்
+Any movement in the lobby?,motion_check,location=lobby
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the parking?,motion_check,location=parking
+முகப்பு தோட்டம் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முகப்பு தோட்டம்
+Any movement in the parking?,motion_check,location=parking
+மெயின் ஹால் இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=மெயின் ஹால்
+Any movement in the garden?,motion_check,location=garden
+முன்னணி மாளிகை இடத்தில் இயக்கம் ஏதும் உள்ளதா?,motion_check,location=முன்னணி மாளிகை
+Start recording in garden,recording,action=start;location=garden
+மெயின் ஹால் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=மெயின் ஹால்
+Start recording in lobby,recording,action=start;location=lobby
+மெயின் ஹால் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=மெயின் ஹால்
+Start recording in parking,recording,action=start;location=parking
+முன்னணி மாளிகை இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முன்னணி மாளிகை
+Stop recording in main hall,recording,action=stop;location=main hall
+வாகன நிறுத்த இடம் இடத்தில் பதிவு நிறுத்து,recording,action=stop;location=வாகன நிறுத்த இடம்
+Start recording in lobby,recording,action=start;location=lobby
+வாகன நிறுத்த இடம் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=வாகன நிறுத்த இடம்
+Stop recording in garden,recording,action=stop;location=garden
+முன்னணி மாளிகை இடத்தில் பதிவு நிறுத்து,recording,action=stop;location=முன்னணி மாளிகை
+Start recording in lobby,recording,action=start;location=lobby
+முன்னணி மாளிகை இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முன்னணி மாளிகை
+Start recording in main hall,recording,action=start;location=main hall
+முன்னணி மாளிகை இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முன்னணி மாளிகை
+Start recording in main hall,recording,action=start;location=main hall
+மெயின் ஹால் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=மெயின் ஹால்
+Start recording in front building,recording,action=start;location=front building
+முகப்பு தோட்டம் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முகப்பு தோட்டம்
+Stop recording in parking,recording,action=stop;location=parking
+லாபி இடத்தில் பதிவு நிறுத்து,recording,action=stop;location=லாபி
+Start recording in lobby,recording,action=start;location=lobby
+லாபி இடத்தில் பதிவு தொடங்கு,recording,action=start;location=லாபி
+Start recording in front building,recording,action=start;location=front building
+லாபி இடத்தில் பதிவு தொடங்கு,recording,action=start;location=லாபி
+Stop recording in main hall,recording,action=stop;location=main hall
+லாபி இடத்தில் பதிவு நிறுத்து,recording,action=stop;location=லாபி
+Stop recording in front building,recording,action=stop;location=front building
+மெயின் ஹால் இடத்தில் பதிவு நிறுத்து,recording,action=stop;location=மெயின் ஹால்
+Start recording in garden,recording,action=start;location=garden
+மெயின் ஹால் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=மெயின் ஹால்
+Start recording in parking,recording,action=start;location=parking
+மெயின் ஹால் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=மெயின் ஹால்
+Start recording in parking,recording,action=start;location=parking
+வாகன நிறுத்த இடம் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=வாகன நிறுத்த இடம்
+Start recording in parking,recording,action=start;location=parking
+முகப்பு தோட்டம் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முகப்பு தோட்டம்
+Start recording in main hall,recording,action=start;location=main hall
+லாபி இடத்தில் பதிவு தொடங்கு,recording,action=start;location=லாபி
+Stop recording in garden,recording,action=stop;location=garden
+லாபி இடத்தில் பதிவு நிறுத்து,recording,action=stop;location=லாபி
+Start recording in parking,recording,action=start;location=parking
+வாகன நிறுத்த இடம் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=வாகன நிறுத்த இடம்
+Stop recording in parking,recording,action=stop;location=parking
+லாபி இடத்தில் பதிவு நிறுத்து,recording,action=stop;location=லாபி
+Start recording in lobby,recording,action=start;location=lobby
+முகப்பு தோட்டம் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முகப்பு தோட்டம்
+Start recording in parking,recording,action=start;location=parking
+லாபி இடத்தில் பதிவு தொடங்கு,recording,action=start;location=லாபி
+Start recording in lobby,recording,action=start;location=lobby
+முன்னணி மாளிகை இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முன்னணி மாளிகை
+Start recording in garden,recording,action=start;location=garden
+மெயின் ஹால் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=மெயின் ஹால்
+Start recording in lobby,recording,action=start;location=lobby
+முன்னணி மாளிகை இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முன்னணி மாளிகை
+Start recording in lobby,recording,action=start;location=lobby
+முகப்பு தோட்டம் இடத்தில் பதிவு தொடங்கு,recording,action=start;location=முகப்பு தோட்டம்
+Start recording in front building,recording,action=start;location=front building
+லாபி இடத்தில் பதிவு தொடங்கு,recording,action=start;location=லாபி

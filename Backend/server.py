@@ -10,6 +10,11 @@ from fastapi.responses import JSONResponse
 
 # Import the SpeechToText service from our new module
 from SpeechToText import WhisperSpeechToText
+try:
+    from nlp_commands import LocalNLP
+except Exception as e:
+    LocalNLP = None  # type: ignore
+    logging.warning(f"LocalNLP import failed: {e}")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +71,6 @@ def ensure_ffmpeg_in_path() -> str | None:
 
 # Initialize the Whisper SpeechToText service once when the server starts
 try:
-    # Try to ensure ffmpeg is on PATH and log what we find, but do not fail hard.
     detected_ffmpeg = ensure_ffmpeg_in_path()
     logger.info(f"FFmpeg in PATH resolves to: {detected_ffmpeg if detected_ffmpeg else 'None'}")
     if not detected_ffmpeg:
@@ -76,9 +80,17 @@ try:
     stt_service = WhisperSpeechToText(model_size=MODEL_SIZE)
 except Exception as e:
     logger.critical(f"Failed to load Whisper model at startup: {e}")
-    # Depending on your deployment, you might want to exit or provide a degraded service.
-    # For now, we'll let the app start but transcription requests will fail.
-    stt_service = None # Set to None if initialization fails
+    stt_service = None
+
+# Initialize Local NLP model (optional)
+nlp_engine = None
+if LocalNLP is not None:
+    try:
+        nlp_engine = LocalNLP()
+    except Exception as nlp_err:
+        logger.warning(f"LocalNLP initialization failed: {nlp_err}")
+else:
+    logger.info("LocalNLP class not available; NLP intents disabled.")
 
 @app.get("/")
 async def root():
@@ -110,6 +122,7 @@ async def transcribe_audio(
     language: str = Form("auto", description="Language hint for transcription (e.g., 'en', 'ta', or 'auto' for detection). Use 'ta' for Tamil when known."),
     translate_if_tamil: bool = Form(False, description="If true and the detected/forced language is Tamil ('ta'), also return an English translation using Whisper's translate task."),
     translation_mode: str = Form("none", description="Extended translation mode: none | literal | high_level. literal uses IndicTrans2 if installed; high_level adds summarization."),
+    run_nlp: bool = Form(True, description="Run local NLP intent/entity extraction on English text (translation/summary if available)."),
 ):
     """
     Receives an audio file and transcribes it using the local Whisper AI model.
@@ -138,6 +151,52 @@ async def transcribe_audio(
             translation_mode=translation_mode,
         )
 
+        # Determine best English candidate for NLP
+        english_candidate = (
+            transcription_result.get("high_level_translation")
+            or transcription_result.get("literal_translation")
+            or transcription_result.get("translation_text")
+        )
+        # Fallback: if none of the English transformation fields are present and original is already English
+        if not english_candidate:
+            lang_code = (transcription_result.get("language") or "").lower()
+            if lang_code.startswith("en"):
+                english_candidate = transcription_result.get("text")
+        nlp_payload = None
+        command_text = None
+        if run_nlp and nlp_engine and english_candidate:
+            try:
+                nlp_payload = nlp_engine.predict_intent(english_candidate)
+                # Build a canonical command string for downstream automation
+                if nlp_payload:
+                    intent = nlp_payload.get('intent')
+                    entities = nlp_payload.get('entities') or {}
+                    if intent == 'playback':
+                        start_t = entities.get('start_time') or entities.get('from') or 'unknown'
+                        end_t = entities.get('end_time') or entities.get('to') or 'unknown'
+                        base_cmd = f"PLAYBACK RANGE {start_t} {end_t}".strip()
+                        date_range_start = entities.get('date_range_start')
+                        date_range_end = entities.get('date_range_end')
+                        if date_range_start and date_range_end:
+                            command_text = f"{base_cmd} DATE_RANGE {date_range_start} {date_range_end}".strip()
+                        else:
+                            date_val = entities.get('date')
+                            if date_val:
+                                command_text = f"{base_cmd} DATE {date_val}".strip()
+                            else:
+                                command_text = base_cmd
+                    elif intent == 'ptz':
+                        direction = entities.get('direction', 'center')
+                        command_text = f"PTZ MOVE {direction.upper()}"
+                    elif intent == 'motion_check':
+                        loc = entities.get('location', 'all')
+                        command_text = f"MOTION CHECK {loc.upper()}"
+                    else:
+                        # Generic fallback
+                        command_text = f"INTENT {intent.upper()}" if intent else None
+            except Exception as ie:
+                logger.warning(f"NLP processing failed: {ie}")
+
         return JSONResponse({
             "text": transcription_result["text"],
             "language": transcription_result["language"],
@@ -148,6 +207,8 @@ async def transcribe_audio(
             "literal_translation": transcription_result.get("literal_translation", ""),
             "high_level_translation": transcription_result.get("high_level_translation", ""),
             "translation_mode": transcription_result.get("translation_mode", "none"),
+            "nlp": nlp_payload,
+            "command_text": command_text,
             "success": True,
         })
             

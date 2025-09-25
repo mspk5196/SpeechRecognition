@@ -4,6 +4,8 @@ python-multipart>=0.0.9
 faster-whisper>=1.0.2
 noisereduce>=3.0.2
 numpy>=1.23
+pandas>=2.0.0
+scikit-learn>=1.3.0
 
 # Optional (install only if you use extended translation modes):
 # indictrans2==2.0.0            # Tamil<->English literal MT (pip may pull sentencepiece & sacremoses)
