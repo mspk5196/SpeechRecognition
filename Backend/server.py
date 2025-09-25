@@ -175,16 +175,16 @@ async def transcribe_audio(
                         start_t = entities.get('start_time') or entities.get('from') or 'unknown'
                         end_t = entities.get('end_time') or entities.get('to') or 'unknown'
                         base_cmd = f"PLAYBACK RANGE {start_t} {end_t}".strip()
+                        date_val = entities.get('date')
                         date_range_start = entities.get('date_range_start')
                         date_range_end = entities.get('date_range_end')
-                        if date_range_start and date_range_end:
+                        # Priority: single date > date range > none
+                        if date_val:
+                            command_text = f"{base_cmd} DATE {date_val}".strip()
+                        elif date_range_start and date_range_end:
                             command_text = f"{base_cmd} DATE_RANGE {date_range_start} {date_range_end}".strip()
                         else:
-                            date_val = entities.get('date')
-                            if date_val:
-                                command_text = f"{base_cmd} DATE {date_val}".strip()
-                            else:
-                                command_text = base_cmd
+                            command_text = base_cmd
                     elif intent == 'ptz':
                         direction = entities.get('direction', 'center')
                         command_text = f"PTZ MOVE {direction.upper()}"

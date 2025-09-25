@@ -298,9 +298,21 @@ const SpeechToText = () => {
                     <Text style={[styles.resultLabel, { marginTop: 0 }]}>Detected Command Intent:</Text>
                     <Text style={styles.resultText}>Intent: {nlpResult.intent}</Text>
                     <Text style={styles.resultText}>Score: {nlpResult.score?.toFixed(3)}</Text>
-                    {nlpResult.entities && Object.keys(nlpResult.entities).length > 0 && (
-                        <Text style={styles.resultText}>Entities: {Object.entries(nlpResult.entities).map(([k,v]) => `${k}=${v}`).join(', ')}</Text>
-                    )}
+                    {nlpResult.entities && Object.keys(nlpResult.entities).length > 0 && (() => {
+                        const e = { ...nlpResult.entities };
+                        // Collapse single-day range: if date_range_start==date_range_end and equals date, remove range keys
+                        if (e.date_range_start && e.date_range_end && e.date_range_start === e.date_range_end) {
+                            if (e.date && e.date === e.date_range_start) {
+                                delete e.date_range_start; delete e.date_range_end;
+                            } else {
+                                // No separate date; promote to date
+                                if (!e.date) e.date = e.date_range_start;
+                                delete e.date_range_start; delete e.date_range_end;
+                            }
+                        }
+                        const entityStr = Object.entries(e).map(([k,v]) => `${k}=${v}`).join(', ');
+                        return <Text style={styles.resultText}>Entities: {entityStr}</Text>;
+                    })()}
                     {commandText ? (
                         <Text style={[styles.resultText, { marginTop: 6, fontWeight: '600' }]}>Command: {commandText}</Text>
                     ) : null}
