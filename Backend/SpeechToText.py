@@ -587,6 +587,6 @@ if __name__ == "__main__":
         #     content = audio_file.read()
         #     result = stt_service.transcribe_audio_file(content, "audio.wav", "en")
         #     print(f"Test Transcription Result: {result}")
-
+ 
     except Exception as e:
         print(f"An error occurred during test: {e}") 
