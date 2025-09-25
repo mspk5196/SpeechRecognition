@@ -287,7 +287,14 @@ class WhisperSpeechToText:
             logger.debug(f"Noise reduction skipped due to error: {e}")
         return audio
 
-    def transcribe_audio_file(self, file_content: bytes, filename: str, language: str = "auto") -> dict:
+    def transcribe_audio_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        language: str = "auto",
+        translate_if_tamil: bool = False,
+        translation_mode: str = "none",  # 'none' | 'literal' | 'high_level'
+    ) -> dict:
         """
         Transcribes audio content from a byte stream using the loaded Whisper model.
 
@@ -297,7 +304,16 @@ class WhisperSpeechToText:
             language (str): The language to transcribe in (e.g., "en", "es", "auto").
 
         Returns:
-            dict: A dictionary containing the transcribed text, detected language, and segment count.
+            dict: A dictionary containing:
+                - text: original transcription (Tamil if source was Tamil)
+                - language: detected (or forced) source language code
+                - segments: number of source segments
+                - translation_text: English translation if performed, else ""
+                - translation_segments: number of translation segments if performed
+                - translation_performed: bool flag (whisper translate pass)
+                - literal_translation: Tamil->English via external MT model (if enabled and mode)
+                - high_level_translation: Summarized / high-level English paraphrase
+                - translation_mode: echo of mode used
 
         Raises:
             Exception: If an error occurs during file processing or transcription.
@@ -356,6 +372,11 @@ class WhisperSpeechToText:
             text = ""
             detected_language = None
             segments_count = 0
+            translation_text = ""
+            translation_segments = 0
+            translation_performed = False
+            literal_translation = ""
+            high_level_translation = ""
 
             if use_ffmpeg and ext != ".wav":
                 # Let faster-whisper handle decoding via FFmpeg
@@ -383,19 +404,147 @@ class WhisperSpeechToText:
                 )
 
             for seg in segments:
-                # seg.text already has leading space typically; strip and add single space
                 txt = getattr(seg, "text", "")
                 if txt:
                     text += (txt if text == "" else (" " + txt.strip()))
                 segments_count += 1
 
             detected_language = getattr(info, "language", None)
-            logger.info(f"Transcription completed: {len(text)} chars; language={detected_language}; segments={segments_count}")
+            final_language = detected_language or (language_arg or "unknown")
+            logger.info(
+                f"Transcription completed: {len(text)} chars; language={final_language}; segments={segments_count}"
+            )
+
+            # Optional translation path: if Tamil (explicit or detected) and user requested
+            is_tamil = (final_language == "ta") or (language_arg == "ta")
+            if translate_if_tamil and is_tamil:
+                try:
+                    logger.info("Tamil detected (or forced) and translation requested; running English translation task…")
+                    # Reuse decoding path: if we already produced a numpy array, reuse; else read from file
+                    translation_source = None
+                    if use_ffmpeg and ext != ".wav":
+                        # Use path for efficiency
+                        translation_source = temp_file_path
+                    else:
+                        # Need an array (re-decode) to avoid side-effects
+                        translation_source = self._decode_wav_to_16k_mono(file_content)
+                        translation_source = self._maybe_denoise(translation_source, sr=16000)
+
+                    t_segments, t_info = self.model.transcribe(
+                        translation_source,
+                        task="translate",
+                        beam_size=beam_size,
+                        best_of=best_of,
+                        temperature=temperature,
+                        vad_filter=vad_filter,
+                    )
+                    for seg in t_segments:
+                        t_txt = getattr(seg, "text", "")
+                        if t_txt:
+                            translation_text += (
+                                t_txt if translation_text == "" else (" " + t_txt.strip())
+                            )
+                        translation_segments += 1
+                    translation_performed = True
+                    logger.info(
+                        f"Translation completed: {len(translation_text)} chars; segments={translation_segments}"
+                    )
+                except Exception as te:
+                    logger.error(f"Translation failed: {te}")
+
+            # Extended translation modes (literal / high_level)
+            # We intentionally lazy-import optional heavy deps so base STT keeps working.
+            if is_tamil and translation_mode in {"literal", "high_level"}:
+                try:
+                    # Lazy load external translation model (IndicTrans2) if available
+                    # Users must install: indictrans2, sentencepiece, sacremoses
+                    if 'IndicTransModel' not in globals():
+                        try:
+                            from IndicTrans2.inference.engine import IndicTransModel  # type: ignore
+                            globals()['IndicTransModel'] = IndicTransModel
+                        except Exception as imp_err:
+                            logger.warning(
+                                "IndicTrans2 not installed; literal/high_level translation skipped. "
+                                "Install with: pip install indictrans2 sentencepiece sacremoses"
+                            )
+                            IndicTransModel = None  # type: ignore
+                    IndicModelClass = globals().get('IndicTransModel')
+                    if IndicModelClass:
+                        if not hasattr(self, '_indic_mt'):
+                            device = 'cuda' if (torch is not None and torch.cuda.is_available()) else 'cpu'
+                            # Use generic multi pair model; users can swap via config
+                            try:
+                                self._indic_mt = IndicModelClass(
+                                    model_name_or_path="ai4bharat/indictrans2-en-ta-all-gpu",
+                                    device=device,
+                                )
+                            except Exception:
+                                # Fallback to CPU model naming if GPU fails
+                                try:
+                                    self._indic_mt = IndicModelClass(
+                                        model_name_or_path="ai4bharat/indictrans2-en-ta-all-cpu",
+                                        device=device,
+                                    )
+                                except Exception as model_err:
+                                    logger.warning(f"Failed loading IndicTrans2 model: {model_err}")
+                        if hasattr(self, '_indic_mt'):
+                            try:
+                                literal_translation = self._indic_mt.translate_sentence(  # type: ignore
+                                    text.strip(), src_lang="ta", tgt_lang="en"
+                                )
+                            except Exception as tr_err:
+                                logger.warning(f"IndicTrans2 translation error: {tr_err}")
+                    # High-level summarization / abstraction
+                    if translation_mode == 'high_level':
+                        # Provide a heuristic summarization using transformers summarization pipeline if available
+                        if 'pipeline' not in globals():
+                            try:
+                                from transformers import pipeline  # type: ignore
+                                globals()['pipeline'] = pipeline
+                            except Exception as t_imp:
+                                logger.warning(
+                                    "transformers not installed; high-level summarization skipped. "
+                                    "Install with: pip install transformers sentencepiece"
+                                )
+                                pipeline = None  # type: ignore
+                        hf_pipeline = globals().get('pipeline')
+                        if hf_pipeline:
+                            try:
+                                if not hasattr(self, '_summary_pipe'):
+                                    # Use a lightweight multilingual summarization-capable model
+                                    # (Users may replace with a better fine-tuned model)
+                                    self._summary_pipe = hf_pipeline(
+                                        'summarization',
+                                        model='facebook/bart-large-cnn'
+                                    )
+                                # Choose source: prefer literal English if available else whisper translation
+                                source_for_summary = literal_translation or translation_text or text
+                                # Truncate excessively long input for summarization model
+                                if len(source_for_summary) > 4000:
+                                    source_for_summary = source_for_summary[:4000]
+                                summary_chunks = self._summary_pipe(
+                                    source_for_summary,
+                                    max_length=180,
+                                    min_length=40,
+                                    do_sample=False,
+                                )
+                                if summary_chunks and isinstance(summary_chunks, list):
+                                    high_level_translation = summary_chunks[0].get('summary_text', '')
+                            except Exception as sum_err:
+                                logger.warning(f"High-level summarization failed: {sum_err}")
+                except Exception as outer_tr_err:
+                    logger.warning(f"Extended translation pipeline error: {outer_tr_err}")
 
             return {
                 "text": text.strip(),
-                "language": detected_language or (language_arg or "unknown"),
+                "language": final_language,
                 "segments": segments_count,
+                "translation_text": translation_text.strip(),
+                "translation_segments": translation_segments,
+                "translation_performed": translation_performed,
+                "literal_translation": literal_translation.strip(),
+                "high_level_translation": high_level_translation.strip(),
+                "translation_mode": translation_mode,
             }
             
         except Exception as e:

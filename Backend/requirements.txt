@@ -4,3 +4,9 @@ python-multipart>=0.0.9
 faster-whisper>=1.0.2
 noisereduce>=3.0.2
 numpy>=1.23
+
+# Optional (install only if you use extended translation modes):
+# indictrans2==2.0.0            # Tamil<->English literal MT (pip may pull sentencepiece & sacremoses)
+# transformers>=4.41.0          # For high-level summarization (BART etc.)
+# sentencepiece>=0.1.99         # Required by some translation models
+# sacremoses>=0.1.1             # Tokenization support for IndicTrans2

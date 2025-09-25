@@ -17,12 +17,12 @@ const SpeechToText = () => {
 
     const languages = [
         { label: 'English', code: 'en' },
-        { label: 'Hindi', code: 'hi' },
+        // { label: 'Hindi', code: 'hi' },
         { label: 'Tamil', code: 'ta' },
-        { label: 'French', code: 'fr' },
-        { label: 'German', code: 'de' },
-        { label: 'Spanish', code: 'es' },
-        { label: 'Auto-detect', code: 'auto' },
+        // { label: 'French', code: 'fr' },
+        // { label: 'German', code: 'de' },
+        // { label: 'Spanish', code: 'es' },
+        // { label: 'Auto-detect', code: 'auto' },
     ];
 
     useEffect(() => {
@@ -48,7 +48,7 @@ const SpeechToText = () => {
 
             // Use AbortController instead of unsupported fetch timeout
             const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), 25000); // 25s for health
+            const id = setTimeout(() => controller.abort(), 80000); // 25s for health
             const response = await fetch(`${serverUrl}/health`, {
                 method: 'GET',
                 signal: controller.signal,

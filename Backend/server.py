@@ -107,7 +107,9 @@ async def health_check():
 @app.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(..., description="Audio file to transcribe (e.g., WAV, MP3, M4A)."),
-    language: str = Form("auto", description="Language hint for transcription (e.g., 'en', 'ta', or 'auto' for detection). Use 'ta' for Tamil when known.")
+    language: str = Form("auto", description="Language hint for transcription (e.g., 'en', 'ta', or 'auto' for detection). Use 'ta' for Tamil when known."),
+    translate_if_tamil: bool = Form(False, description="If true and the detected/forced language is Tamil ('ta'), also return an English translation using Whisper's translate task."),
+    translation_mode: str = Form("none", description="Extended translation mode: none | literal | high_level. literal uses IndicTrans2 if installed; high_level adds summarization."),
 ):
     """
     Receives an audio file and transcribes it using the local Whisper AI model.
@@ -128,13 +130,25 @@ async def transcribe_audio(
         logger.info(f"Read {len(content)} bytes from uploaded file")
 
         # Call the transcription method from the service instance
-        transcription_result = stt_service.transcribe_audio_file(content, file.filename or "", language)
-        
+        transcription_result = stt_service.transcribe_audio_file(
+            content,
+            file.filename or "",
+            language,
+            translate_if_tamil=translate_if_tamil,
+            translation_mode=translation_mode,
+        )
+
         return JSONResponse({
             "text": transcription_result["text"],
             "language": transcription_result["language"],
             "segments": transcription_result["segments"],
-            "success": True
+            "translation_text": transcription_result.get("translation_text", ""),
+            "translation_segments": transcription_result.get("translation_segments", 0),
+            "translation_performed": transcription_result.get("translation_performed", False),
+            "literal_translation": transcription_result.get("literal_translation", ""),
+            "high_level_translation": transcription_result.get("high_level_translation", ""),
+            "translation_mode": transcription_result.get("translation_mode", "none"),
+            "success": True,
         })
             
     except Exception as e:
