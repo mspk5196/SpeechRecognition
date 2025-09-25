@@ -1,7 +1,9 @@
+from concurrent.futures import process
 import logging
 import os
 import shutil
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -25,9 +27,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define the Whisper model size for the server
+# Load .env if present
+load_dotenv()
+
+# Define the Whisper model size for the server (can override via .env)
 # Use large-v3 for best EN/Tamil accuracy; GPU recommended
-MODEL_SIZE = "large-v3"
+MODEL_SIZE = os.getenv("WHISPER_MODEL", "large-v3")
+SERVER_HOST = os.getenv("WHISPER_HOST", "10.150.249.75")
+SERVER_PORT = int(os.getenv("WHISPER_PORT", "8000"))
 
 # On Windows, winget often places shims at %LOCALAPPDATA%\Microsoft\WinGet\Links.
 # Ensure ffmpeg is discoverable before loading Whisper to avoid WinError 2.
@@ -164,14 +171,14 @@ if __name__ == "__main__":
     print("📝 Ensure requirements are installed:")
     print("    pip install -r Backend/requirements.txt")
     print("    (for GPU, install PyTorch CUDA build and ensure NVIDIA drivers)")
-    print(f"🌐 Server will attempt to run on: http://192.168.10.8:8000")
+    print(f"🌐 Server will attempt to run on: http://{SERVER_HOST}:{SERVER_PORT}")
     print("📱 Use this URL in your React Native app")
     print("⚡ Press Ctrl+C to stop the server")
     
     # Run the FastAPI application using uvicorn
     uvicorn.run(
         app, 
-        host="192.168.10.8",  # Listen on a specific IP or "0.0.0.0" for all interfaces
-        port=8000,
+        host=SERVER_HOST,  # Listen on a specific IP or "0.0.0.0" for all interfaces
+        port=SERVER_PORT,
         log_level="info"
     )

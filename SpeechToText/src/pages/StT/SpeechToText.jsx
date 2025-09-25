@@ -4,13 +4,14 @@ import { Picker } from '@react-native-picker/picker';
 import AudioRecord from 'react-native-audio-record';
 import RNFS from 'react-native-fs';
 import styles from './StTsty';
+import {API_URL} from '../../util/env';
 
 const SpeechToText = () => {
     const [recognizedText, setRecognizedText] = useState('');
     const [isListening, setIsListening] = useState(false);
     const [selectedLang, setSelectedLang] = useState('en');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [serverUrl, setServerUrl] = useState('http://192.168.10.8:8000');
+    const [serverUrl, setServerUrl] = useState(API_URL);
     const [serverReady, setServerReady] = useState(false);
     const [checkingServer, setCheckingServer] = useState(false);
 
