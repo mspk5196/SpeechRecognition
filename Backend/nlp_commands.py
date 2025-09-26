@@ -5,6 +5,12 @@ import re
 import os
 from typing import List, Dict, Optional, Union
 
+SINGLE_TIME_FALLBACK_MODE = os.getenv("SINGLE_TIME_FALLBACK_MODE", "plus1h").lower()
+# Modes:
+#  plus1h   -> end_time = start_time + 1 hour (capped same date 23:59)
+#  now      -> end_time = current time (but if date in past AND now < start_time, still use +1h to avoid inversion)
+#  partofday-> if part_of_day detected, end_time = min(part window end, start+1h) else behave like plus1h
+
 class LocalNLP:
     """Local NLP component with optional incremental (buffered) self-learning.
 
@@ -44,6 +50,12 @@ class LocalNLP:
         self.intents: List[str] = []
         self.entities: List[str] = []
         self.entity_map: Dict[str, str] = {}
+        # Inference (every-request) self-learning (enabled by default; can cause drift)
+        # Control via env NLP_INFER_LEARN (true/false) and NLP_INFER_RETRAIN_EVERY (default 10)
+        self.inference_learn_enabled = str(os.getenv("NLP_INFER_LEARN", "true")).lower() in {"1","true","yes","on"}
+        self.inference_retrain_every = int(os.getenv("NLP_INFER_RETRAIN_EVERY", "10") or 10)
+        self._inference_added = 0
+
         self.load_data()
 
     def load_data(self):
@@ -165,16 +177,67 @@ class LocalNLP:
         proba = self.model.predict_proba(X)[0]
         score = float(proba.max())
         entities = self.extract_entities(command_text)
-        # Heuristic override: pattern 'play from <time> to <time>' strongly implies playback
+        # Heuristic override: patterns implying playback
+        # Accept variants: "play from", "playback from", "play back from", "show playback from", "show play back from"
         lc = command_text.lower()
-        if intent != 'playback' and re.search(r"play\s+from\s+\d{1,2}\s*(am|pm)\s+to\s+\d{1,2}\s*(am|pm)", lc):
+        if intent != 'playback':
+            playback_range_pattern = r"(?:(?:show\s+)?play\s*back|(?:show\s+)?playback|play)\s+from\s+\d{1,2}(?::\d{2})?\s*(?:a\.m\.|p\.m\.|am|pm)\s+to\s+\d{1,2}(?::\d{2})?\s*(?:a\.m\.|p\.m\.|am|pm)"
+            if re.search(playback_range_pattern, lc):
+                intent = 'playback'
+        # Fallback heuristic: if we clearly extracted a start & end time but classifier chose something else, treat as playback
+        if intent != 'playback' and entities.get('start_time') and entities.get('end_time'):
             intent = 'playback'
         # Attempt auto-learning if enabled
         self._maybe_auto_learn(command_text, intent, score, entities)
+        # Optional inference learning (append every request regardless of confidence)
+        self.learn_from_inference(command_text, intent, entities, score)
         return {"intent": intent, "score": score, "entities": entities}
+
+    # --------------------------------------------------------------
+    # Inference self-learning (append each prediction to user dataset)
+    # --------------------------------------------------------------
+    def learn_from_inference(self, text: str, intent: str, entities: Dict[str,str], score: float) -> bool:
+        """Persist this inference as a training example if enabled.
+
+        WARNING: This uses model-predicted intent labels and can reinforce errors.
+        Use only when you have very limited base data or are prototyping.
+        Controlled by env NLP_INFER_LEARN=true. Retrain frequency controlled by
+        NLP_INFER_RETRAIN_EVERY (default 25). Deduplicates on text string.
+        """
+        if not self.inference_learn_enabled:
+            return False
+        if not text or not intent:
+            return False
+        # Deduplicate exact text (case-insensitive)
+        if any(t.lower() == text.lower() for t in self.texts):
+            return False
+        # Serialize entities with score
+        ent_with_score = entities.copy() if entities else {}
+        ent_with_score['pred_score'] = f"{score:.4f}"
+        serialized = self._serialize_entities(ent_with_score)
+        try:
+            self._append_user_example(text, intent, serialized)
+            self._inference_added += 1
+            # Periodic retrain
+            if self._inference_added % max(1, self.inference_retrain_every) == 0:
+                self.load_data()
+            return True
+        except Exception:
+            return False
 
     def extract_entities(self, command_text):
         text_lc = command_text.lower()
+        # Part-of-day detection for inference of ambiguous times
+        part_of_day = None
+        for pod, variants in {
+            'morning': ['morning','முற்பகல்'],
+            'afternoon': ['afternoon','பிற்பகல்'],
+            'evening': ['evening','சாயங்கால'],
+            'night': ['night','இரவு']
+        }.items():
+            if any(v in text_lc for v in variants):
+                part_of_day = pod
+                break
         # Exact / containment mapping (collect but don't early-return so we can refine dates/times)
         collected = {}
         for base, entity_str in self.entity_map.items():
@@ -190,23 +253,47 @@ class LocalNLP:
                     pass
 
         entities: dict[str,str] = collected.copy()
+        if part_of_day and 'part_of_day' not in entities:
+            entities['part_of_day'] = part_of_day
         # Pattern: from 9 am to 10 am / 9am to 10am / 9 am - 10 am
-        range_match = re.search(r"from\s+(\d{1,2}\s*(?:am|pm))\s+to\s+(\d{1,2}\s*(?:am|pm))", text_lc)
+        time_token = r"\d{1,2}(?::\d{2})?\s*(?:a\.m\.|p\.m\.|am|pm)"
+        range_match = re.search(rf"from\s+({time_token})\s+to\s+({time_token})", text_lc)
         if not range_match:
-            range_match = re.search(r"(\d{1,2}\s*(?:am|pm))\s*(?:-|to)\s*(\d{1,2}\s*(?:am|pm))", text_lc)
+            range_match = re.search(rf"({time_token})\s*(?:-|to)\s*({time_token})", text_lc)
         if range_match:
-            entities['start_time'] = range_match.group(1).replace(" ", "")
-            entities['end_time'] = range_match.group(2).replace(" ", "")
+            entities['start_time'] = re.sub(r"\s+", "", range_match.group(1))
+            entities['end_time'] = re.sub(r"\s+", "", range_match.group(2))
+
+        # O'clock pattern (e.g., 10 o'clock / 10 o clock / 10 o’ clock)
+        if 'start_time' not in entities:
+            oclock_match = re.search(r"\b(\d{1,2})\s*(?:o['’]?\s*clock|o\s*clock|o'clock)\b", text_lc)
+            if oclock_match:
+                hour = int(oclock_match.group(1))
+                # Infer am/pm from part_of_day if present
+                if part_of_day == 'morning' and 1 <= hour <= 11:
+                    entities['start_time'] = f"{hour}:00am"
+                elif part_of_day in {'afternoon','evening','night'}:
+                    # Treat 1-11 as pm, leave 12 as 12pm
+                    if hour == 12:
+                        entities['start_time'] = "12:00pm"
+                    else:
+                        entities['start_time'] = f"{hour}:00pm"
+                else:
+                    # Ambiguous: store as plain HH:00 (will be promoted & left as-is if cannot am/pm-normalize)
+                    entities['start_time'] = f"{hour:02d}:00"
 
         # Single times (collect if not already captured)
-        all_times = re.findall(r"\b(\d{1,2})\s*(am|pm)\b", text_lc)
+        all_times = re.findall(r"\b(\d{1,2})(?::(\d{2}))?\s*(a\.m\.|p\.m\.|am|pm)\b", text_lc)
         if all_times and 'start_time' not in entities:
-            # First as start, last as end if multiple
             if len(all_times) == 1:
-                entities['time'] = ''.join(all_times[0])
+                h, m, ap = all_times[0]
+                minute = m or '00'
+                entities['time'] = f"{h}:{minute}{ap.replace('.', '')}"
             else:
-                entities['start_time'] = ''.join(all_times[0])
-                entities['end_time'] = ''.join(all_times[-1])
+                h1,m1,ap1 = all_times[0]
+                h2,m2,ap2 = all_times[-1]
+                entities['start_time'] = f"{h1}:{m1 or '00'}{ap1}"
+                entities['end_time'] = f"{h2}:{m2 or '00'}{ap2}"
 
         # Direction detection for PTZ
         if any(w in text_lc for w in ["left", "right", "up", "down"]):
@@ -524,28 +611,99 @@ class LocalNLP:
 
     @staticmethod
     def _to_24h(t_ampm: str) -> str:
-        """Convert times like '9am','09am','12pm','12am','10pm' to HH:MM 24h."""
-        m = re.match(r"^(\d{1,2})(am|pm)$", t_ampm)
-        if not m:
+        """Convert times like '9am','9:15am','09 a.m.','12pm','12:30 p.m.' to HH:MM 24h."""
+        if not t_ampm:
             return t_ampm
-        h = int(m.group(1))
-        ap = m.group(2)
+        t = t_ampm.lower().replace('.', '')  # remove dots in a.m./p.m.
+        t = re.sub(r"\s+", "", t)
+        # Patterns: 9am, 9:15am, 09am, 09:05pm
+        m = re.match(r"^(\d{1,2})(?::(\d{2}))?(am|pm)$", t)
+        if not m:
+            return t_ampm  # return original if no match (already normalized?)
+        h = int(m.group(1)); minute = m.group(2) or '00'; ap = m.group(3)
         if ap == 'am':
-            if h == 12:
-                h = 0
-        else:  # pm
-            if h != 12:
-                h += 12
-        return f"{h:02d}:00"
+            if h == 12: h = 0
+        else:
+            if h != 12: h += 12
+        return f"{h:02d}:{minute}"
 
     def _normalize_time_entities(self, entities: dict):
         # If a combined 'time' only, promote to start_time for consistency
         if 'time' in entities and 'start_time' not in entities and 'end_time' not in entities:
             entities['start_time'] = entities.pop('time')
-        # Normalize start/end
         for key in ['start_time','end_time']:
             if key in entities:
                 entities[key] = self._to_24h(entities[key])
+        # Enhanced fallback
+        if 'start_time' in entities and 'end_time' not in entities:
+            from datetime import datetime as _dt, timedelta as _td, date as _date
+            start_raw = entities['start_time']
+            # Parse HH:MM or HH format
+            m = re.match(r"^(\d{1,2})(?::(\d{2}))?$", start_raw)
+            if m:
+                sh = int(m.group(1)); sm = int(m.group(2) or '00')
+            else:
+                # If cannot parse, just set end = start (device may reject but we tried)
+                entities['end_time'] = start_raw
+                entities['fallback_strategy'] = 'unparsed_echo'
+                return entities
+            part_of_day = entities.get('part_of_day')
+            # Determine date (if provided) to decide whether it's past
+            today = _date.today()
+            date_str = entities.get('date')
+            date_obj = None
+            if date_str:
+                try:
+                    date_obj = _dt.strptime(date_str, '%Y-%m-%d').date()
+                except Exception:
+                    date_obj = None
+            # Helper to format time
+            def fmt(h,mi):
+                return f"{h:02d}:{mi:02d}"
+            # Compute default +1h
+            plus1h_h = sh
+            plus1h_m = sm + 0
+            # add 60 minutes
+            plus1_total = sh*60 + sm + 60
+            plus1h_h = plus1_total // 60
+            plus1h_m = plus1_total % 60
+            # Cap to 23:59 same date
+            if plus1h_h > 23:
+                plus1h_h, plus1h_m = 23, 59
+            # Part-of-day windows
+            pod_windows = {
+                'morning': (6*60, 12*60),        # 06:00-12:00
+                'afternoon': (12*60, 17*60),      # 12:00-17:00
+                'evening': (17*60, 21*60),        # 17:00-21:00
+                'night': (21*60, 24*60-1)         # 21:00-23:59
+            }
+            if SINGLE_TIME_FALLBACK_MODE == 'partofday' and part_of_day in pod_windows:
+                start_minutes = sh*60 + sm
+                window_start, window_end = pod_windows[part_of_day]
+                # If user gave time outside window, keep +1h logic
+                if window_start <= start_minutes <= window_end:
+                    end_candidate = min(window_end, start_minutes + 60)
+                    eh = end_candidate // 60; em = end_candidate % 60
+                    entities['end_time'] = fmt(eh, em)
+                    entities['fallback_strategy'] = 'partofday_window'
+                else:
+                    entities['end_time'] = fmt(plus1h_h, plus1h_m)
+                    entities['fallback_strategy'] = 'plus1h_outside_window'
+            elif SINGLE_TIME_FALLBACK_MODE == 'now':
+                now = _dt.now()
+                now_h = now.hour; now_m = now.minute
+                # If date is past or (same date but now earlier than start) -> avoid inversion using +1h
+                if (date_obj and date_obj < today) or (date_obj == today and (now_h*60 + now_m) < (sh*60 + sm)):
+                    entities['end_time'] = fmt(plus1h_h, plus1h_m)
+                    entities['fallback_strategy'] = 'plus1h_guard_for_past_or_inversion'
+                else:
+                    entities['end_time'] = fmt(now_h, now_m)
+                    entities['fallback_strategy'] = 'now'
+            else:  # plus1h default
+                # If date in future AND plus1h crosses midnight, we still cap same day
+                entities['end_time'] = fmt(plus1h_h, plus1h_m)
+                entities['fallback_strategy'] = 'plus1h'
+            return entities
         return entities
     
 if __name__ == "__main__":

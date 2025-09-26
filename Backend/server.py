@@ -1,6 +1,7 @@
 from concurrent.futures import process
 from datetime import datetime
 import logging
+import json
 import os
 import shutil
 import uvicorn
@@ -93,6 +94,37 @@ if LocalNLP is not None:
 else:
     logger.info("LocalNLP class not available; NLP intents disabled.")
 
+# -------------------------------------------------------------
+# Playback success memory (adaptive ranking)
+# -------------------------------------------------------------
+SUCCESS_MEMORY_FILE = os.path.join(os.path.dirname(__file__), 'playback_success.json')
+
+def load_success_memory():
+    try:
+        if os.path.isfile(SUCCESS_MEMORY_FILE):
+            with open(SUCCESS_MEMORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+def save_success_memory(data: dict):
+    try:
+        with open(SUCCESS_MEMORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed saving success memory: {e}")
+
+success_memory = load_success_memory()
+
+@app.post('/playback/mark_success')
+async def mark_playback_success(pattern: str = Form(...), channel: str = Form(...)):
+    """Endpoint the client can call once a candidate URL is confirmed to play recorded video.
+    Stores last successful pattern/channel so future generations prioritize it."""
+    success_memory['last'] = {'pattern': pattern, 'channel': channel, 'ts': datetime.utcnow().isoformat()+'Z'}
+    save_success_memory(success_memory)
+    return {'ok': True, 'stored': success_memory['last']}
+
 @app.get("/")
 async def root():
     """Returns a welcome message and current model status."""
@@ -166,6 +198,10 @@ async def transcribe_audio(
         nlp_payload = None
         command_text = None
         playback_url = None
+        playback_alternates = []
+        playback_primary_pattern = None
+        playback_patterns_tried: list[dict] = []
+        playback_debug: list[str] = []
         if run_nlp and nlp_engine and english_candidate:
             try:
                 nlp_payload = nlp_engine.predict_intent(english_candidate)
@@ -180,6 +216,17 @@ async def transcribe_audio(
                         date_range_start = entities.get('date_range_start')
                         date_range_end = entities.get('date_range_end')
                         camera = entities.get('camera')
+                        assumed_today = False
+                        assumed_camera = False
+                        # Fallbacks: if we have times but no date at all, assume today for playback URL building
+                        if (not date_val and not date_range_start) and start_t != 'unknown' and end_t != 'unknown':
+                            from datetime import date as _date
+                            date_val = _date.today().strftime('%Y-%m-%d')
+                            assumed_today = True
+                        # If no camera specified, use DEFAULT_CAMERA env or 1 for building URL (still report assumption)
+                        if not camera:
+                            camera = os.getenv('DEFAULT_CAMERA', '1')
+                            assumed_camera = True
                         if date_val:
                             command_text = f"{base_cmd} DATE {date_val}".strip()
                         elif date_range_start and date_range_end:
@@ -190,6 +237,7 @@ async def transcribe_audio(
                             command_text += f" CAMERA {camera}"
                         # Build playback URL if we have a concrete single date (or range start) and both times
                         if camera and (date_val or date_range_start) and start_t != 'unknown' and end_t != 'unknown':
+                            playback_debug.append(f"Attempting playback build cam={camera} date={date_val or date_range_start} start={start_t} end={end_t}")
                             chosen_date = date_val or date_range_start
                             def norm_time(t: str) -> str:
                                 parts = t.split(':')
@@ -201,16 +249,166 @@ async def transcribe_audio(
                                 base_day = datetime.strptime(chosen_date, "%Y-%m-%d")
                                 start_compact = base_day.strftime("%Y%m%d") + 'T' + norm_time(start_t)
                                 end_compact = base_day.strftime("%Y%m%d") + 'T' + norm_time(end_t)
-                                # Camera channel mapping heuristic: camera N -> N padded 2 digits + '01'
-                                cam_channel = str(camera).zfill(2) + '01'
                                 rtsp_user = os.getenv('CCTV_USER', 'admin')
-                                rtsp_pass = os.getenv('CCTV_PASS', 'password')
+                                rtsp_pass = os.getenv('CCTV_PASS', os.getenv('CCTV_PASSWORD', 'password'))
                                 rtsp_host = os.getenv('CCTV_HOST', '192.168.1.64')
-                                playback_url = (
-                                    f"rtsp://{rtsp_user}:{rtsp_pass}@{rtsp_host}:554/Streaming/Channels/{cam_channel}?starttime={start_compact}Z&endtime={end_compact}Z"
-                                )
+                                rtsp_port = os.getenv('CCTV_RTSP_PORT', '554')
+                                cam_int = int(camera)
+
+                                # Channel variants (refined ordering: proven working -> others)
+                                channel_variants: list[str] = []
+                                base101 = f"{cam_int}01"  # e.g. 1 -> 101
+                                if base101 not in channel_variants:
+                                    channel_variants.append(base101)
+                                zp = f"{cam_int:02d}01"    # zero padded e.g. 0101
+                                if zp not in channel_variants:
+                                    channel_variants.append(zp)
+                                if str(cam_int) not in channel_variants:  # plain camera number
+                                    channel_variants.append(str(cam_int))
+
+                                # Playback pattern templates (tracks prioritized based on user-confirmed success)
+                                pattern_templates = {
+                                    'tracks':        '/Streaming/tracks/{ch}?starttime={st}Z&endtime={et}Z',
+                                    'playflag':      '/Streaming/Channels/{ch}?Playback=1&starttime={st}Z&endtime={et}Z',
+                                    'base':          '/Streaming/Channels/{ch}?starttime={st}Z&endtime={et}Z',
+                                    'base_noz':      '/Streaming/Channels/{ch}?starttime={st}&endtime={et}',
+                                    'isapi_tracks':  '/ISAPI/Streaming/tracks/{ch}?starttime={st}Z&endtime={et}Z'
+                                }
+
+                                # Optional explicit ordering override: CCTV_PATTERN_ORDER=tracks,playflag,base
+                                order_env = os.getenv('CCTV_PATTERN_ORDER')
+                                if order_env:
+                                    desired = [o.strip() for o in order_env.split(',') if o.strip()]
+                                    reordered = {}
+                                    for key in desired:
+                                        if key in pattern_templates:
+                                            reordered[key] = pattern_templates[key]
+                                    for k,v in pattern_templates.items():
+                                        if k not in reordered:
+                                            reordered[k] = v
+                                    pattern_templates = reordered
+
+                                # Promote remembered success (adaptive ranking)
+                                remembered = success_memory.get('last')
+                                if remembered:
+                                    remb_pat = remembered.get('pattern')
+                                    remb_ch = remembered.get('channel')
+                                    if remb_pat in pattern_templates:
+                                        pt_copy = {remb_pat: pattern_templates[remb_pat]}
+                                        for k,v in pattern_templates.items():
+                                            if k != remb_pat:
+                                                pt_copy[k] = v
+                                        pattern_templates = pt_copy
+                                    if remb_ch in channel_variants:
+                                        channel_variants = [remb_ch] + [c for c in channel_variants if c != remb_ch]
+                                    playback_debug.append(f"Promoted remembered success pattern={remb_pat} channel={remb_ch}")
+
+                                # Time style handling (todo 4) using CCTV_TIME_STYLE
+                                time_style = os.getenv('CCTV_TIME_STYLE', 'utc_z').lower()
+                                offset_suffix = ''
+                                if time_style.startswith('offset='):
+                                    # offset=+05:30 or offset=-04:00
+                                    offset_suffix = time_style.split('=',1)[1].strip()
+                                    if not offset_suffix or len(offset_suffix) < 3:
+                                        offset_suffix = ''  # fallback
+                                # Adjust pattern templates for time style (remove Z or add offset)
+                                if time_style != 'utc_z':
+                                    adjusted = {}
+                                    for k,v in pattern_templates.items():
+                                        v2 = v.replace('{st}Z','{st}').replace('{et}Z','{et}')
+                                        if offset_suffix:
+                                            v2 = v2.replace('{st}', '{st}'+offset_suffix).replace('{et}','{et}'+offset_suffix)
+                                        adjusted[k] = v2
+                                    pattern_templates = adjusted
+
+                                # dynamic ensure_time_tokens respects time style
+                                def ensure_time_tokens(pat: str) -> str:
+                                    need_suffix = 'Z' if time_style == 'utc_z' else offset_suffix
+                                    if '{st}' in pat and '{et}' in pat:
+                                        return pat
+                                    if 'starttime=' in pat and 'endtime=' in pat:
+                                        return pat
+                                    joiner = '&' if '?' in pat else '?'
+                                    return pat + f"{joiner}starttime={{st}}{need_suffix}&endtime={{et}}{need_suffix}"
+
+                                # Environment pattern parsing + candidate generation (restored)
+                                raw_env = os.getenv('CCTV_PLAYBACK_PATTERNS')
+                                custom_items: list[dict] = []  # each: {name, pattern}
+                                filtered_keys = None
+                                if raw_env:
+                                    raw_env_str = raw_env.strip()
+                                    if raw_env_str.startswith('['):
+                                        try:
+                                            arr = json.loads(raw_env_str)
+                                            if isinstance(arr, list):
+                                                for idx, obj in enumerate(arr):
+                                                    if isinstance(obj, dict) and 'pattern' in obj:
+                                                        nm = obj.get('name') or f'custom_{idx}'
+                                                        custom_items.append({'name': nm, 'pattern': obj['pattern']})
+                                            else:
+                                                playback_debug.append('CCTV_PLAYBACK_PATTERNS JSON root not list – ignored')
+                                        except Exception as je:
+                                            playback_debug.append(f'Failed JSON parse CCTV_PLAYBACK_PATTERNS: {je}')
+                                    else:
+                                        filtered_keys = {p.strip() for p in raw_env_str.replace(';', ',').split(',') if p.strip()}
+                                        pattern_templates = {k: v for k, v in pattern_templates.items() if k in filtered_keys}
+
+                                if custom_items:
+                                    pattern_items = custom_items
+                                else:
+                                    pattern_items = [{'name': k, 'pattern': v} for k, v in pattern_templates.items()]
+                                if not pattern_items:
+                                    playback_debug.append('No playback patterns available after env filtering')
+
+                                from urllib.parse import quote
+                                enc_user = quote(rtsp_user, safe='')
+                                enc_pass = quote(rtsp_pass, safe='')
+                                for ch in channel_variants:
+                                    for item in pattern_items:
+                                        name = item['name']
+                                        tmpl = ensure_time_tokens(item['pattern'])
+                                        tmpl = tmpl.replace('{channel}', ch)
+                                        if '{ch}' in tmpl:
+                                            formatted = tmpl.format(ch=ch, st=start_compact, et=end_compact, user=rtsp_user, password=rtsp_pass, host=rtsp_host, port=rtsp_port)
+                                        else:
+                                            formatted = tmpl.format(st=start_compact, et=end_compact, user=rtsp_user, password=rtsp_pass, host=rtsp_host, port=rtsp_port)
+                                        if formatted.startswith('rtsp://'):
+                                            full_url = formatted.replace('{user}', enc_user).replace('{password}', enc_pass)
+                                        else:
+                                            full_url = f"rtsp://{enc_user}:{enc_pass}@{rtsp_host}:{rtsp_port}{formatted}"
+                                        playback_alternates.append(full_url)
+                                        playback_patterns_tried.append({'pattern': name, 'channel': ch, 'url': full_url})
+
+                                if playback_alternates:
+                                    playback_url = playback_alternates[0]
+                                    playback_primary_pattern = playback_patterns_tried[0]['pattern'] if playback_patterns_tried else None
+                                    playback_debug.append(f"Generated {len(playback_alternates)} candidate URLs; primary pattern={playback_primary_pattern}")
+                                    playback_type = 'playback' if 'starttime=' in playback_url.lower() else 'live'
+                                else:
+                                    playback_debug.append('No playback_alternates generated after pattern loop')
+                                    playback_type = 'unknown'
                             except Exception as p_err:
                                 logger.debug(f"Failed building playback URL: {p_err}")
+                                playback_debug.append(f"Exception building playback URLs: {p_err}")
+                        else:
+                            playback_debug.append("Playback build conditions not met: camera or date/times missing or unknown")
+                        # Attach assumption flags back into NLP payload entities for frontend transparency
+                        try:
+                            if assumed_today or assumed_camera:
+                                if nlp_payload.get('entities') is not None:
+                                    if assumed_today:
+                                        nlp_payload['entities']['assumed_date_today'] = 'true'
+                                        nlp_payload['entities']['date'] = date_val
+                                    if assumed_camera:
+                                        nlp_payload['entities']['assumed_camera_default'] = 'true'
+                                        nlp_payload['entities']['camera'] = camera
+                        except Exception:
+                            pass
+                    elif intent != 'playback':
+                        # Heuristic: if clear time range present treat as playback (user might omit 'playback')
+                        if ('start_time' in entities and 'end_time' in entities) and intent != 'playback':
+                            intent = 'playback'
+                            command_text = f"PLAYBACK RANGE {entities.get('start_time')} {entities.get('end_time')}".strip()
                     elif intent == 'ptz':
                         direction = entities.get('direction', 'center')
                         command_text = f"PTZ MOVE {direction.upper()}"
@@ -235,12 +433,16 @@ async def transcribe_audio(
             "nlp": nlp_payload,
             "command_text": command_text,
             "playback_url": playback_url,
+            "playback_alternates": playback_alternates,
+            "playback_primary_pattern": playback_primary_pattern,
+            "playback_patterns_tried": playback_patterns_tried,
+            "playback_debug": playback_debug,
+            "playback_type": locals().get('playback_type', None),
             "success": True,
         })
             
     except Exception as e:
         logger.error(f"Transcription endpoint error: {str(e)}", exc_info=True)
-        # Return a 500 Internal Server Error with details
         raise HTTPException(
             status_code=500,
             detail={
@@ -262,10 +464,9 @@ async def list_models():
     else:
         return {
             "current_model": "Not Loaded",
-            "available_models": ["tiny", "base", "small", "medium", "large"], # Provide defaults even if service not ready
-            "languages": ["auto"] # Provide default if service not ready
+            "available_models": ["tiny", "base", "small", "medium", "large"],
+            "languages": ["auto"]
         }
-
 
 if __name__ == "__main__":
     print("🎤 Starting Local Whisper Server...")
@@ -275,11 +476,4 @@ if __name__ == "__main__":
     print(f"🌐 Server will attempt to run on: http://{SERVER_HOST}:{SERVER_PORT}")
     print("📱 Use this URL in your React Native app")
     print("⚡ Press Ctrl+C to stop the server")
-    
-    # Run the FastAPI application using uvicorn
-    uvicorn.run(
-        app, 
-        host=SERVER_HOST,  # Listen on a specific IP or "0.0.0.0" for all interfaces
-        port=SERVER_PORT,
-        log_level="info"
-    )
+    uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT, log_level="info")

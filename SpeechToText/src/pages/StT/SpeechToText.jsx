@@ -145,10 +145,36 @@ const SpeechToText = () => {
                 setNlpResult(result.nlp || null);
                 setCommandText(result.command_text || '');
                 console.log('Transcription result:', result);
-                if (result?.nlp?.intent === 'playback' && result.playback_url) {
-                    // Auto navigate to CCTV screen with playback parameters
+                if (result?.nlp?.intent === 'playback') {
                     const camera = result.nlp?.entities?.camera;
-                    navigation.navigate('CCTV', { playbackUrl: result.playback_url, camera });
+                    if (result.playback_url) {
+                        navigation.navigate('CCTV', { playbackUrl: result.playback_url, camera, alternates: result.playback_alternates || [] });
+                    } else {
+                        // Fallback: if we have start/end times and maybe assumed today but no URL (older server build)
+                        const ents = result?.nlp?.entities || {};
+                        if (ents.start_time && ents.end_time) {
+                            const assumedDate = ents.date || new Date().toISOString().substring(0,10);
+                            // Build minimal local URL guess (will work if env matches)
+                            const cam = camera || '1';
+                            const toCompact = (t) => {
+                                const parts = t.split(':');
+                                const h = parts[0].padStart(2,'0');
+                                const m = (parts[1]||'00').padStart(2,'0');
+                                const s = (parts[2]||'00').padStart(2,'0');
+                                return h+m+s;
+                            };
+                            const baseDay = assumedDate.replace(/-/g,'');
+                            const startCompact = baseDay + 'T' + toCompact(ents.start_time);
+                            const endCompact = baseDay + 'T' + toCompact(ents.end_time);
+                            const camChannel = cam.toString().padStart(2,'0') + '01';
+                            // Use defaults mirroring backend env assumptions
+                            const fallbackHost = '192.168.1.64';
+                            const fallbackUser = 'admin';
+                            const fallbackPass = 'password';
+                            const guessed = `rtsp://${fallbackUser}:${fallbackPass}@${fallbackHost}:554/Streaming/Channels/${camChannel}?starttime=${startCompact}Z&endtime=${endCompact}Z`;
+                            navigation.navigate('CCTV', { playbackUrl: guessed, camera: cam, alternates: result.playback_alternates || [] });
+                        }
+                    }
                 }
                 
             } else {

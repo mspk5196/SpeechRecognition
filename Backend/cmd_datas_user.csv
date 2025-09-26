@@ -1,4 +1,6 @@
 text,intent,entities
+
+Yesterday morning at 10 o'clock with playback,playback,start_time=10:00;date=2025-09-25;pred_score=0.8957
 Show playback from 10:00 to 11:00 last week,playback,start_time=10:00;end_time=11:00;date=last week
 நேற்று முன் நாள் 10 மணி முதல் 11 மணி வரை பதிவு காண்பி,playback,start_time=10 மணி;end_time=10 மணி முதல் 11 மணி;date=நேற்று முன் நாள்
 Show playback from 11:00 to 13:00 last week,playback,start_time=11:00;end_time=13:00;date=last week
@@ -1092,10 +1094,19 @@ I wake up at 11 in the morning and wake up at 11 o'clock in the morning,playback
 From 10 in the morning to 11 in the morning  I used to go to work.,playback,location=the;pred_score=0.6816
 Payback from 10 am to 11 am,playback,start_time=10:00;end_time=11:00;pred_score=0.9049
 and play from 9 am to 10 am in the morning,playback,start_time=09:00;end_time=10:00;location=the;pred_score=0.8111
-Is it in tamil too?,ptz,location=tamil;pred_score=0.3780
-Hey  I need a camera and a black bag. From 10 in the morning till 10 in the evening.,playback,location=the;pred_score=0.5281
-I received your message regarding IOT basis automation.,playback,pred_score=0.7473
-Hello  how are you? I need an appointment with Dr. Mithileshku.,playback,pred_score=0.7473
-Walaikum,playback,pred_score=0.7473
-There is a cctv page,playback,pred_score=0.7473
-Playback was at 9 in the morning yesterday.,playback,location=the;date=2025-09-25;pred_score=0.7401
+Playback was at 9 in the morning yesterday.,playback,location=the;date=2025-09-25;pred_score=0.7401Playback was at 10am yesterday,playback,date=2025-09-25;start_time=10:00;pred_score=0.8757
+Playback at 10 in the morning,playback,location=the;pred_score=0.7874
+Yesterday morning 10 o'clock playback code,playback,part_of_day=morning;start_time=10:00;date=2025-09-25;end_time=14:06;inferred_end_time_now=true;pred_score=0.8881
+I will play back at 10 last night,playback,part_of_day=night;pred_score=0.8569
+Last night 10 PM Playback Code,playback,part_of_day=night;start_time=22:00;end_time=14:07;inferred_end_time_now=true;pred_score=0.8867
+Playback at 10 PM,playback,start_time=22:00;end_time=14:07;inferred_end_time_now=true;pred_score=0.8982
+I am going to cut it,playback,pred_score=0.8297
+I played 10 in the morning,playback,part_of_day=morning;location=the;pred_score=0.6895
+Playback at 10 in the morning,playback,part_of_day=morning;location=the;pred_score=0.7818
+Playback at 10 in the morning,playback,part_of_day=morning;location=the;pred_score=0.7818
+Today in the morning at 10 o'clock I will play the game,playback,part_of_day=morning;start_time=10:00;location=the;date=2025-09-26;end_time=11:00;fallback_strategy=plus1h;pred_score=0.7769
+Playback at 10 in the morning,playback,part_of_day=morning;location=the;pred_score=0.7818
+Playback at 10 in the morning,playback,part_of_day=morning;location=the;pred_score=0.7818
+Playback is 10 o'clock in the morning.,playback,part_of_day=morning;start_time=10:00;location=the;end_time=11:00;fallback_strategy=plus1h;pred_score=0.7422
+Playback at 10 in the morning,playback,part_of_day=morning;location=the;pred_score=0.7818
+yesterday morning at 10 am,playback,part_of_day=morning;date=2025-09-25;start_time=10:00;end_time=11:00;fallback_strategy=plus1h;pred_score=0.9142
