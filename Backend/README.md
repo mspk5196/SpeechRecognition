@@ -32,6 +32,74 @@ choco install ffmpeg -y
 
 The server attempts to auto-detect FFmpeg on Windows by merging PATH from the registry and scanning common install locations (including Winget shims under `%LOCALAPPDATA%\Microsoft\WinGet\Links`). If FFmpeg is not found, WAV files are still supported via a built-in decoder; other formats will require FFmpeg.
 
+## Features
+
+- Local Whisper transcription (faster-whisper backend)
+- Optional Tamil -> English translation (literal + high-level summary modes)
+- Intent & entity extraction for surveillance playback:
+  - Relative months (last/this/next month) with specific day refinement
+  - Relative weeks (last/this/next week)
+  - Weekdays (English & Tamil) with relative modifiers
+  - Multi-day spans (e.g., "10th to 12th last month")
+  - Tamil month/day phrases and spans
+  - Time ranges (from 10am to 11:30am; 14:00 to 15:45)
+  - Automatic 12h -> 24h normalization
+- Camera-aware playback commands ("camera 2 yesterday 5pm to 6pm")
+- Auto-generated RTSP playback URL for downstream player
+- Incremental self-learning: buffers high-confidence novel examples and supports manual correction append/retrain
+
+## Camera Playback
+
+When a command includes a camera reference, date (or resolvable relative date), and start/end times, the `/transcribe` response now contains `playback_url`.
+
+Supported camera patterns:
+```
+camera 1
+cam 2
+channel 3
+camera ten (word numbers one..twelve)
+```
+
+Channel mapping heuristic: `camera N -> NN01` (e.g., camera 1 => 0101). Adjust inside `server.py` if your NVR uses a different convention.
+
+Playback RTSP URL format (Hikvision-style example):
+```
+rtsp://USER:PASS@HOST:554/Streaming/Channels/<channel>?starttime=YYYYMMDDTHHMMSSZ&endtime=YYYYMMDDTHHMMSSZ
+```
+
+Currently multi-day ranges pick the start day for URL composition (extend if your player supports cross-day playback via params).
+
+## Example Commands
+
+| Spoken Command | Key Parsed Entities | Result |
+|----------------|---------------------|--------|
+| last month on 10th from 9am to 10am | date=YYYY-08-10, start_time=09:00, end_time=10:00 | Single-day playback |
+| 10th to 12th last month 3pm to 5pm | date_range_start, date_range_end, start/end times | Range metadata (URL uses start day) |
+| on Monday 10am to 11am | date=(this week Monday), start/end times | Weekly day resolution |
+| camera 3 last week Tuesday 14:00 to 15:30 | camera=3, date=(resolved) | Playback URL returned |
+| cam two yesterday 5:15 pm to 5:45 pm | camera=2, date=(yesterday) | Playback URL returned |
+
+## Relative Periods Supported
+
+- this / last / next week
+- this / last / next month (with specific day refinement)
+- Weekdays (English & Tamil) optionally with last/this/next
+- Multi-day spans (e.g., "10th to 12th last month")
+- Tamil month and day phrases, including spans
+
+## Integration Notes
+
+Frontend auto-navigates to the CCTV screen when a playback URL is returned (React Navigation param: `playbackUrl`). The CCTV component detects playback vs live mode via presence of this param.
+
+Environment variables (optional) influencing playback URL construction:
+```
+CCTV_USER=admin
+CCTV_PASS=password
+CCTV_HOST=192.168.1.64
+```
+
+Adjust the mapping logic or add authentication management as needed for production.
+
 ## Run the server
 
 ```powershell

@@ -1,4 +1,5 @@
 from concurrent.futures import process
+from datetime import datetime
 import logging
 import os
 import shutil
@@ -164,10 +165,10 @@ async def transcribe_audio(
                 english_candidate = transcription_result.get("text")
         nlp_payload = None
         command_text = None
+        playback_url = None
         if run_nlp and nlp_engine and english_candidate:
             try:
                 nlp_payload = nlp_engine.predict_intent(english_candidate)
-                # Build a canonical command string for downstream automation
                 if nlp_payload:
                     intent = nlp_payload.get('intent')
                     entities = nlp_payload.get('entities') or {}
@@ -178,13 +179,38 @@ async def transcribe_audio(
                         date_val = entities.get('date')
                         date_range_start = entities.get('date_range_start')
                         date_range_end = entities.get('date_range_end')
-                        # Priority: single date > date range > none
+                        camera = entities.get('camera')
                         if date_val:
                             command_text = f"{base_cmd} DATE {date_val}".strip()
                         elif date_range_start and date_range_end:
                             command_text = f"{base_cmd} DATE_RANGE {date_range_start} {date_range_end}".strip()
                         else:
                             command_text = base_cmd
+                        if camera:
+                            command_text += f" CAMERA {camera}"
+                        # Build playback URL if we have a concrete single date (or range start) and both times
+                        if camera and (date_val or date_range_start) and start_t != 'unknown' and end_t != 'unknown':
+                            chosen_date = date_val or date_range_start
+                            def norm_time(t: str) -> str:
+                                parts = t.split(':')
+                                h = parts[0].zfill(2)
+                                m = (parts[1] if len(parts) > 1 else '00').zfill(2)
+                                s = (parts[2] if len(parts) > 2 else '00').zfill(2)
+                                return h + m + s
+                            try:
+                                base_day = datetime.strptime(chosen_date, "%Y-%m-%d")
+                                start_compact = base_day.strftime("%Y%m%d") + 'T' + norm_time(start_t)
+                                end_compact = base_day.strftime("%Y%m%d") + 'T' + norm_time(end_t)
+                                # Camera channel mapping heuristic: camera N -> N padded 2 digits + '01'
+                                cam_channel = str(camera).zfill(2) + '01'
+                                rtsp_user = os.getenv('CCTV_USER', 'admin')
+                                rtsp_pass = os.getenv('CCTV_PASS', 'password')
+                                rtsp_host = os.getenv('CCTV_HOST', '192.168.1.64')
+                                playback_url = (
+                                    f"rtsp://{rtsp_user}:{rtsp_pass}@{rtsp_host}:554/Streaming/Channels/{cam_channel}?starttime={start_compact}Z&endtime={end_compact}Z"
+                                )
+                            except Exception as p_err:
+                                logger.debug(f"Failed building playback URL: {p_err}")
                     elif intent == 'ptz':
                         direction = entities.get('direction', 'center')
                         command_text = f"PTZ MOVE {direction.upper()}"
@@ -192,7 +218,6 @@ async def transcribe_audio(
                         loc = entities.get('location', 'all')
                         command_text = f"MOTION CHECK {loc.upper()}"
                     else:
-                        # Generic fallback
                         command_text = f"INTENT {intent.upper()}" if intent else None
             except Exception as ie:
                 logger.warning(f"NLP processing failed: {ie}")
@@ -209,6 +234,7 @@ async def transcribe_audio(
             "translation_mode": transcription_result.get("translation_mode", "none"),
             "nlp": nlp_payload,
             "command_text": command_text,
+            "playback_url": playback_url,
             "success": True,
         })
             

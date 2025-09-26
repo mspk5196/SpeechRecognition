@@ -216,6 +216,21 @@ class LocalNLP:
                         entities['direction'] = d
                         break
 
+        # Camera / channel selection
+        if 'camera' not in entities:
+            # Numeric forms: camera 1, cam 02, channel 3, ch 4
+            cam_match = re.search(r"\b(cam(?:era)?|channel|ch)\s*(\d{1,3})\b", text_lc)
+            if cam_match:
+                entities['camera'] = str(int(cam_match.group(2)))  # normalize remove leading zeros
+            else:
+                # Word number forms: camera one/two/three ... up to twelve
+                word_nums = {
+                    'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12
+                }
+                cam_word = re.search(r"\b(cam(?:era)?|channel|ch)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b", text_lc)
+                if cam_word:
+                    entities['camera'] = str(word_nums[cam_word.group(2)])
+
         # Location heuristic
         loc_match = re.search(r"in\s+([a-zA-Z]+)", text_lc)
         if loc_match and 'location' not in entities:

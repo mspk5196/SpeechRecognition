@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, ScrollView, StyleSheet, Alert, PermissionsAndroid, Platform, TextInput } from 'react-native';
+import { View, Text, Button, ScrollView, StyleSheet, Alert, PermissionsAndroid, Platform, TextInput, Touchable, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import AudioRecord from 'react-native-audio-record';
 import RNFS from 'react-native-fs';
 import styles from './StTsty';
 import {API_URL} from '../../util/env';
+import { useNavigation } from '@react-navigation/native';
 
 const SpeechToText = () => {
+    const navigation = useNavigation();
     const [recognizedText, setRecognizedText] = useState('');
     const [translationMode, setTranslationMode] = useState('none'); // none | literal | high_level
     const [runNlp, setRunNlp] = useState(true);
@@ -143,6 +145,11 @@ const SpeechToText = () => {
                 setNlpResult(result.nlp || null);
                 setCommandText(result.command_text || '');
                 console.log('Transcription result:', result);
+                if (result?.nlp?.intent === 'playback' && result.playback_url) {
+                    // Auto navigate to CCTV screen with playback parameters
+                    const camera = result.nlp?.entities?.camera;
+                    navigation.navigate('CCTV', { playbackUrl: result.playback_url, camera });
+                }
                 
             } else {
                 setRecognizedText('No speech detected in the audio.');
@@ -208,7 +215,11 @@ const SpeechToText = () => {
                     disabled={checkingServer}
                 />
             </View>
-
+            <TouchableOpacity onPress={() => {
+                navigation.navigate('CCTV');
+            }}> 
+                <Text style={styles.changeServerText}>CCTV Page</Text>
+            </TouchableOpacity>
             <Text style={styles.label}>Translation Mode:</Text>
             <View style={styles.pickerContainer}>
                 <Picker
