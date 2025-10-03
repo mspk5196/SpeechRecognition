@@ -6,6 +6,8 @@ noisereduce>=3.0.2
 numpy>=1.23
 pandas>=2.0.0
 scikit-learn>=1.3.0
+transformers>=4.40.0
+torch  # required runtime for transformers models (CPU ok; install CUDA build manually for GPU)
 
 # Optional (install only if you use extended translation modes):
 # indictrans2==2.0.0            # Tamil<->English literal MT (pip may pull sentencepiece & sacremoses)

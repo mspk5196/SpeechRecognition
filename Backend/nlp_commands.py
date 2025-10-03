@@ -5,6 +5,31 @@ import re
 import os
 from typing import List, Dict, Optional, Union
 
+# Backend selection: heuristic (default) | spacy | transformer
+BACKEND_MODE = os.getenv("NLP_BACKEND", "").lower()
+USE_SPACY_BACKEND = BACKEND_MODE == "spacy"
+USE_TRANSFORMER_BACKEND = BACKEND_MODE == "transformer"
+
+_spacy_loaded = False
+_spacy_extract = None
+if USE_SPACY_BACKEND:
+    try:  # pragma: no cover
+        from spacy_extractor import extract_with_spacy  # type: ignore
+        _spacy_extract = extract_with_spacy
+        _spacy_loaded = True
+    except Exception as _sp_err:  # pragma: no cover
+        print(f"[NLP] spaCy backend requested but failed to load: {_sp_err}. Falling back to heuristic extractor.")
+
+_transformer_loaded = False
+_transformer_extract = None
+if USE_TRANSFORMER_BACKEND and not USE_SPACY_BACKEND:
+    try:  # pragma: no cover
+        from transformer_extractor import extract_with_transformer  # type: ignore
+        _transformer_extract = extract_with_transformer
+        _transformer_loaded = True
+    except Exception as _tr_err:  # pragma: no cover
+        print(f"[NLP] transformer backend requested but failed to load: {_tr_err}. Falling back to heuristic extractor.")
+
 SINGLE_TIME_FALLBACK_MODE = os.getenv("SINGLE_TIME_FALLBACK_MODE", "plus1h").lower()
 # Modes:
 #  plus1h   -> end_time = start_time + 1 hour (capped same date 23:59)
@@ -227,6 +252,23 @@ class LocalNLP:
 
     def extract_entities(self, command_text):
         text_lc = command_text.lower()
+        # Run optional external extractor first (priority: spacy > transformer)
+        merged: Dict[str,str] = {}
+        if USE_SPACY_BACKEND and _spacy_loaded and _spacy_extract:
+            try:
+                spacy_ents = _spacy_extract(command_text)
+                for k,v in spacy_ents.items():
+                    merged[k] = v if isinstance(v,str) else str(v)
+            except Exception as se:  # pragma: no cover
+                print(f"[NLP] spaCy extraction error: {se}")
+        elif USE_TRANSFORMER_BACKEND and _transformer_loaded and _transformer_extract:
+            try:
+                tr_ents = _transformer_extract(command_text)
+                for k,v in tr_ents.items():
+                    merged[k] = v if isinstance(v,str) else str(v)
+            except Exception as te:  # pragma: no cover
+                print(f"[NLP] transformer extraction error: {te}")
+
         # Detect part-of-day first (retain original list)
         part_of_day = None
         for pod, variants in {
@@ -263,6 +305,10 @@ class LocalNLP:
                     pass
 
         entities: dict[str,str] = collected.copy()
+        # Merge external backend entities (do not overwrite heuristic matches)
+        for k,v in merged.items():
+            if k not in entities:
+                entities[k] = v
         if part_of_day and 'part_of_day' not in entities:
             entities['part_of_day'] = part_of_day
         # Pattern: from 9 am to 10 am / 9am to 10am / 9 am - 10 am
@@ -361,14 +407,35 @@ class LocalNLP:
             entities['location'] = loc_match.group(1)
 
         # Date extraction
-        # Relative words
-        today_words = {"today":0, "yesterday":-1, "tomorrow":1, "day before yesterday":-2, "day after tomorrow":2}
+        # Relative words (support multi-relative spans like 'yesterday ... today')
+        today_words = {"day before yesterday":-2, "yesterday":-1, "today":0, "tomorrow":1, "day after tomorrow":2}
         from datetime import date, timedelta
-        for phrase, offset in sorted(today_words.items(), key=lambda x: -len(x[0])):
-            if phrase in text_lc and 'date' not in entities:
-                target = date.today() + timedelta(days=offset)
-                entities['date'] = target.isoformat()
-                break
+        if 'date' not in entities and 'date_range_start' not in entities:
+            found_rel = []  # (index, phrase, offset)
+            for phrase, offset in today_words.items():
+                # word boundary match to avoid partials
+                for m_rel in re.finditer(r"\b" + re.escape(phrase) + r"\b", text_lc):
+                    found_rel.append((m_rel.start(), phrase, offset))
+            if found_rel:
+                found_rel.sort(key=lambda x: x[0])
+                # Map offsets to concrete iso dates preserving order
+                date_list = []
+                for _, _, off in found_rel:
+                    d_iso = (date.today() + timedelta(days=off)).isoformat()
+                    date_list.append(d_iso)
+                # Deduplicate preserving order
+                uniq_dates = []
+                for d_iso in date_list:
+                    if d_iso not in uniq_dates:
+                        uniq_dates.append(d_iso)
+                if len(uniq_dates) == 1:
+                    entities['date'] = uniq_dates[0]
+                    entities['date_range_start'] = uniq_dates[0]
+                    entities['date_range_end'] = uniq_dates[0]
+                else:
+                    # Span implied
+                    entities['date_range_start'] = uniq_dates[0]
+                    entities['date_range_end'] = uniq_dates[-1]
 
         # Relative week/month phrases -> date ranges
         # Detect only if no explicit date already
@@ -642,7 +709,7 @@ class LocalNLP:
                     except Exception:
                         pass
 
-        # Normalize times to 24h HH:MM and promote single time
+    # Normalize times to 24h HH:MM and promote single time
         entities = self._normalize_time_entities(entities)
         return entities
 

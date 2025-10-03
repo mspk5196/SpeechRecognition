@@ -1,5 +1,5 @@
 from concurrent.futures import process
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import json
 import os
@@ -235,10 +235,16 @@ async def transcribe_audio(
                             command_text = base_cmd
                         if camera:
                             command_text += f" CAMERA {camera}"
-                        # Build playback URL if we have a concrete single date (or range start) and both times
+                        # Build playback URL if we have times and at least a start date
                         if camera and (date_val or date_range_start) and start_t != 'unknown' and end_t != 'unknown':
-                            playback_debug.append(f"Attempting playback build cam={camera} date={date_val or date_range_start} start={start_t} end={end_t}")
-                            chosen_date = date_val or date_range_start
+                            # If a date range exists and end date different + end_time < start_time, treat as overnight span
+                            overnight = False
+                            chosen_date_start = date_val or date_range_start
+                            chosen_date_end = None
+                            if date_range_start and date_range_end and date_range_end != date_range_start:
+                                chosen_date_end = date_range_end
+                            playback_debug.append(f"Attempting playback build cam={camera} date_start={chosen_date_start} date_end={chosen_date_end or chosen_date_start} start={start_t} end={end_t}")
+                            chosen_date = chosen_date_start
                             def norm_time(t: str) -> str:
                                 parts = t.split(':')
                                 h = parts[0].zfill(2)
@@ -246,9 +252,25 @@ async def transcribe_audio(
                                 s = (parts[2] if len(parts) > 2 else '00').zfill(2)
                                 return h + m + s
                             try:
-                                base_day = datetime.strptime(chosen_date, "%Y-%m-%d")
-                                start_compact = base_day.strftime("%Y%m%d") + 'T' + norm_time(start_t)
-                                end_compact = base_day.strftime("%Y%m%d") + 'T' + norm_time(end_t)
+                                base_day_start = datetime.strptime(chosen_date_start, "%Y-%m-%d")
+                                start_compact = base_day_start.strftime("%Y%m%d") + 'T' + norm_time(start_t)
+                                # Decide end date
+                                end_date_for_build = chosen_date_start
+                                if chosen_date_end:
+                                    end_date_for_build = chosen_date_end
+                                base_day_end = datetime.strptime(end_date_for_build, "%Y-%m-%d")
+                                end_compact = base_day_end.strftime("%Y%m%d") + 'T' + norm_time(end_t)
+                                # If no explicit end date but end earlier than start (e.g., 23:00 to 05:00) assume next day
+                                if not chosen_date_end:
+                                    try:
+                                        sh, sm, *_ = (start_t+':00').split(':')
+                                        eh, em, *_ = (end_t+':00').split(':')
+                                        if (int(eh), int(em)) < (int(sh), int(sm)):
+                                            base_day_end = base_day_start + timedelta(days=1)
+                                            end_compact = base_day_end.strftime("%Y%m%d") + 'T' + norm_time(end_t)
+                                            overnight = True
+                                    except Exception:
+                                        pass
                                 rtsp_user = os.getenv('CCTV_USER', 'admin')
                                 rtsp_pass = os.getenv('CCTV_PASS', os.getenv('CCTV_PASSWORD', 'password'))
                                 rtsp_host = os.getenv('CCTV_HOST', '192.168.1.64')
@@ -266,14 +288,72 @@ async def transcribe_audio(
                                 if str(cam_int) not in channel_variants:  # plain camera number
                                     channel_variants.append(str(cam_int))
 
-                                # Playback pattern templates (tracks prioritized based on user-confirmed success)
-                                pattern_templates = {
-                                    'tracks':        '/Streaming/tracks/{ch}?starttime={st}Z&endtime={et}Z',
-                                    'playflag':      '/Streaming/Channels/{ch}?Playback=1&starttime={st}Z&endtime={et}Z',
-                                    'base':          '/Streaming/Channels/{ch}?starttime={st}Z&endtime={et}Z',
-                                    'base_noz':      '/Streaming/Channels/{ch}?starttime={st}&endtime={et}',
-                                    'isapi_tracks':  '/ISAPI/Streaming/tracks/{ch}?starttime={st}Z&endtime={et}Z'
-                                }
+                                # Vendor specific pattern selection
+                                vendor = os.getenv('CCTV_VENDOR', '').lower().strip()
+                                # Normalize times per vendor specification downstream
+                                # We'll produce st/et in multiple shapes as needed
+                                # base_day_* already include 'T' between date/time. We'll derive variants:
+                                #  - compact_tz (YYYYMMDDtHHMMSSz) for Hikvision (lowercase t/z)
+                                #  - compact_TZ (YYYYMMDDTHHMMSSZ) generic/unv
+                                #  - compact_plain (YYYYMMDDHHMMSS) Dahua/CPPlus/generic alt
+                                def derive_time_forms(dt_str: str) -> dict:
+                                    # dt_str like YYYYMMDDTHHMMSS
+                                    if 'T' not in dt_str:
+                                        base = dt_str[:8] + 'T' + dt_str[8:]
+                                    else:
+                                        base = dt_str
+                                    ymd = base[:8]; timepart = base[9:]
+                                    return {
+                                        'TZ': base + 'Z',                # YYYYMMDDTHHMMSSZ
+                                        'tz': (ymd + 't' + timepart + 'z'), # lowercase
+                                        'plain': ymd + timepart           # YYYYMMDDHHMMSS
+                                    }
+                                # start_compact / end_compact currently like YYYYMMDDTHHMMSS or with T (constructed above)
+                                # Ensure they follow that format for forms derivation
+                                start_forms = derive_time_forms(start_compact)
+                                end_forms = derive_time_forms(end_compact)
+
+                                if vendor == 'hikvision':
+                                    # Must use /Streaming/tracks/{ch}?starttime=YYYYMMDDtHHMMSSZ (lowercase t/z) per spec
+                                    pattern_templates = {
+                                        'hik_tracks': '/Streaming/tracks/{ch}?starttime={st_lc}&endtime={et_lc}'
+                                    }
+                                    # Override time vars to lowercase variant
+                                    start_token = start_forms['tz']
+                                    end_token = end_forms['tz']
+                                elif vendor in {'dahua','cpplus','cp_plus'}:
+                                    # Dahua / CP Plus playback format: /cam/playback?channel=1&starttime=YYYYMMDDHHMMSS
+                                    pattern_templates = {
+                                        'dahua_playback': '/cam/playback?channel={cam}&starttime={st_plain}&endtime={et_plain}'
+                                    }
+                                    start_token = start_forms['plain']
+                                    end_token = end_forms['plain']
+                                elif vendor in {'unv','uniview'}:
+                                    # Uniview playback: /playback?channel=1&starttime=YYYYMMDDTHHMMSSZ
+                                    pattern_templates = {
+                                        'unv_playback': '/playback?channel={cam}&starttime={st_TZ}&endtime={et_TZ}'
+                                    }
+                                    start_token = start_forms['TZ']
+                                    end_token = end_forms['TZ']
+                                elif vendor == 'axis':
+                                    # Axis typically not RTSP playback; keep generic track + note
+                                    pattern_templates = {
+                                        'axis_tracks': '/Streaming/tracks/{ch}?starttime={st}Z&endtime={et}Z'
+                                    }
+                                    start_token = start_forms['TZ']
+                                    end_token = end_forms['TZ']
+                                    playback_debug.append('Axis vendor selected: direct RTSP playback may not be supported on some devices.')
+                                else:
+                                    # Generic / existing fallback set including tracks
+                                    pattern_templates = {
+                                        'tracks':        '/Streaming/tracks/{ch}?starttime={st}Z&endtime={et}Z',
+                                        'playflag':      '/Streaming/Channels/{ch}?Playback=1&starttime={st}Z&endtime={et}Z',
+                                        'base':          '/Streaming/Channels/{ch}?starttime={st}Z&endtime={et}Z',
+                                        'base_noz':      '/Streaming/Channels/{ch}?starttime={st}&endtime={et}',
+                                        'isapi_tracks':  '/ISAPI/Streaming/tracks/{ch}?starttime={st}Z&endtime={et}Z'
+                                    }
+                                    start_token = start_forms['TZ']
+                                    end_token = end_forms['TZ']
 
                                 # Optional explicit ordering override: CCTV_PATTERN_ORDER=tracks,playflag,base
                                 order_env = os.getenv('CCTV_PATTERN_ORDER')
@@ -303,7 +383,7 @@ async def transcribe_audio(
                                         channel_variants = [remb_ch] + [c for c in channel_variants if c != remb_ch]
                                     playback_debug.append(f"Promoted remembered success pattern={remb_pat} channel={remb_ch}")
 
-                                # Time style handling (todo 4) using CCTV_TIME_STYLE
+                                # Time style handling (todo 4) using CCTV_TIME_STYLE (only for generic style patterns)
                                 time_style = os.getenv('CCTV_TIME_STYLE', 'utc_z').lower()
                                 offset_suffix = ''
                                 if time_style.startswith('offset='):
@@ -366,23 +446,45 @@ async def transcribe_audio(
                                 for ch in channel_variants:
                                     for item in pattern_items:
                                         name = item['name']
-                                        tmpl = ensure_time_tokens(item['pattern'])
+                                        tmpl = item['pattern']
+                                        # Insert vendor-specific tokens
                                         tmpl = tmpl.replace('{channel}', ch)
-                                        if '{ch}' in tmpl:
-                                            formatted = tmpl.format(ch=ch, st=start_compact, et=end_compact, user=rtsp_user, password=rtsp_pass, host=rtsp_host, port=rtsp_port)
+                                        # Provide camera number placeholder for vendor patterns using {cam}
+                                        tmpl = tmpl.replace('{cam}', str(cam_int))
+                                        # Provide time placeholders for vendor variants
+                                        tmpl_prepared = tmpl
+                                        if '{st_lc}' in tmpl_prepared or '{et_lc}' in tmpl_prepared:
+                                            tmpl_prepared = tmpl_prepared.replace('{st_lc}', start_forms['tz']).replace('{et_lc}', end_forms['tz'])
+                                        if '{st_TZ}' in tmpl_prepared or '{et_TZ}' in tmpl_prepared:
+                                            tmpl_prepared = tmpl_prepared.replace('{st_TZ}', start_forms['TZ']).replace('{et_TZ}', end_forms['TZ'])
+                                        if '{st_plain}' in tmpl_prepared or '{et_plain}' in tmpl_prepared:
+                                            tmpl_prepared = tmpl_prepared.replace('{st_plain}', start_forms['plain']).replace('{et_plain}', end_forms['plain'])
+                                        # Generic placeholders {st}/{et}
+                                        tmpl_prepared = tmpl_prepared.replace('{st}', start_token).replace('{et}', end_token)
+                                        # Ensure tokens if generic style missing explicit query params
+                                        tmpl_prepared = ensure_time_tokens(tmpl_prepared) if vendor in {'','generic'} else tmpl_prepared
+                                        if '{ch}' in tmpl_prepared:
+                                            formatted = tmpl_prepared.format(ch=ch, user=rtsp_user, password=rtsp_pass, host=rtsp_host, port=rtsp_port)
                                         else:
-                                            formatted = tmpl.format(st=start_compact, et=end_compact, user=rtsp_user, password=rtsp_pass, host=rtsp_host, port=rtsp_port)
-                                        if formatted.startswith('rtsp://'):
-                                            full_url = formatted.replace('{user}', enc_user).replace('{password}', enc_pass)
+                                            formatted = tmpl_prepared.format(user=rtsp_user, password=rtsp_pass, host=rtsp_host, port=rtsp_port)
+                                        if not formatted.startswith('rtsp://'):
+                                            full_url = f"rtsp://{rtsp_user}:{rtsp_pass}@{rtsp_host}:{rtsp_port}{formatted}"
                                         else:
-                                            full_url = f"rtsp://{enc_user}:{enc_pass}@{rtsp_host}:{rtsp_port}{formatted}"
+                                            full_url = formatted
+                                        from urllib.parse import quote as _q
+                                        full_url = full_url.replace(rtsp_user, _q(rtsp_user,'')).replace(rtsp_pass, _q(rtsp_pass,''))
                                         playback_alternates.append(full_url)
                                         playback_patterns_tried.append({'pattern': name, 'channel': ch, 'url': full_url})
 
                                 if playback_alternates:
                                     playback_url = playback_alternates[0]
                                     playback_primary_pattern = playback_patterns_tried[0]['pattern'] if playback_patterns_tried else None
-                                    playback_debug.append(f"Generated {len(playback_alternates)} candidate URLs; primary pattern={playback_primary_pattern}")
+                                    note = ''
+                                    if overnight:
+                                        note = ' (overnight span)'
+                                    elif chosen_date_end and chosen_date_end != chosen_date_start:
+                                        note = ' (multi-date span)'
+                                    playback_debug.append(f"Generated {len(playback_alternates)} candidate URLs; primary pattern={playback_primary_pattern}{note}")
                                     playback_type = 'playback' if 'starttime=' in playback_url.lower() else 'live'
                                 else:
                                     playback_debug.append('No playback_alternates generated after pattern loop')

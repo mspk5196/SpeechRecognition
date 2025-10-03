@@ -1243,3 +1243,28 @@ Channel 2 between 10 and 1,playback,start_time=10:00;end_time=13:00;camera=2
 Channel 3 playback 10-13,playback,start_time=10:00;end_time=13:00;camera=3
 Camera four 10am till 1pm,playback,start_time=10:00;end_time=13:00;camera=4It's 10 in the morning. It's 10 in the afternoon.,playback,part_of_day=morning;location=the;pred_score=0.6148
 from 10 am to 1 pm,playback,start_time=10:00;end_time=13:00;pred_score=0.9427
+Playback from 10 am to 1 pm,playback,start_time=10:00;end_time=13:00;pred_score=0.9564
+Last night  from 10 am to 5 am  people were doing many things.,playback,part_of_day=night;start_time=10:00;end_time=05:00;pred_score=0.9275
+Yesterday night from 11 am to 5 am  I got food.,playback,part_of_day=night;start_time=11:00;end_time=05:00;date=2025-10-02;pred_score=0.9248
+from 10 am yesterday to 10 am today,playback,start_time=10:00;end_time=10:00;date_range_start=2025-10-02;date_range_end=2025-10-03;pred_score=0.9317
+Payback at 10 in the morning,playback,part_of_day=morning;start_time=10:00;location=the;end_time=11:00;fallback_strategy=plus1h;pred_score=0.7632
+Today morning from 10am to 1pm play back is going on,playback,part_of_day=morning;start_time=10:00;end_time=13:00;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;pred_score=0.8828
+It is 10 in the morning. Payback will be done by 10 in the morning.,playback,part_of_day=morning;start_time=10:00;location=the;end_time=11:00;fallback_strategy=plus1h;pred_score=0.6981
+Playback from 10 am to 10 am,playback,start_time=10:00;end_time=10:00;pred_score=0.9349
+from 10am to 11am,playback,start_time=10:00;end_time=11:00;pred_score=0.8914
+Playback from 10am in the morning,playback,part_of_day=morning;location=the;start_time=10:00;end_time=11:00;fallback_strategy=plus1h;pred_score=0.7656
+today morning 10am to 11pm,playback,part_of_day=morning;start_time=10:00;end_time=23:00;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;pred_score=0.8742
+Yesterday morning  he played a 10 o'clock play back.,playback,part_of_day=morning;start_time=10:00;date=2025-10-02;date_range_start=2025-10-02;date_range_end=2025-10-02;end_time=11:00;fallback_strategy=plus1h;pred_score=0.8654
+From 10am yesterday to 10am today  the playback is the same.,playback,start_time=10:00;end_time=10:00;date_range_start=2025-10-02;date_range_end=2025-10-03;pred_score=0.8533
+yesterday night from 11.59am to 12.01am,playback,part_of_day=night;start_time=59:00;end_time=01:00;date=2025-10-02;date_range_start=2025-10-02;date_range_end=2025-10-02;pred_score=0.9466
+Last night 11-53  today morning 12-1 is the playback code.,playback,part_of_day=morning;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;pred_score=0.8803
+From 11.59 last night to 12.01 this morning  it is a playback road.,playback,part_of_day=morning;start_time=11:00;end_time=12:00;fallback_strategy=plus1h;pred_score=0.9027
+From 11.59 last night to 12.01 this morning,playback,part_of_day=morning;start_time=11:00;end_time=12:00;fallback_strategy=plus1h;pred_score=0.9379
+Playback from 11.59 last night,playback,part_of_day=night;start_time=11:00;end_time=12:00;fallback_strategy=plus1h;pred_score=0.9521
+Camera playback from 10am yesterday. Camera playback continues from 10 am today. For more video from the day  visit CNN.com/Cinema. For the latest from CNN  go to www.cnn.com.,playback,start_time=10:00;end_time=10:00;date_range_start=2025-10-02;date_range_end=2025-10-03;pred_score=0.8748
+"Show me the footage of camera 1.  Last night it was 10 o'clock  today in the morning at 11 o' clock  show me the Footage of Camera 1 " he said.,playback,part_of_day=morning;start_time=10:00;camera=1;location=the;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;end_time=11:00;fallback_strategy=plus1h;pred_score=0.7272
+Play back from 10am to 11am,playback,start_time=10:00;end_time=11:00;pred_score=0.8616
+Yesterday morning 10 o'clock was the playback.,playback,part_of_day=morning;start_time=10:00;date=2025-10-02;date_range_start=2025-10-02;date_range_end=2025-10-02;end_time=11:00;fallback_strategy=plus1h;pred_score=0.8829
+Give playback for yesterday morning 10 a.m. to yesterday morning 12 a.m,playback,part_of_day=morning;date=2025-10-02;date_range_start=2025-10-02;date_range_end=2025-10-02;pred_score=0.9246
+I need an appointment with Dr. Mithiles. Send me the timing in whatsapp.,playback,location=whatsapp;pred_score=0.6987
+“ ”  “” “’””. ‘’. ’’ ‚’  ”‘”      ‚“  “ ’   ”   . “.” .   ‬ .    “"’" "”: ‘I’m sorry  I can’t help you. I’ve got to go to work.’' : “What’s going on in your head?’: ‘What do you think?”,playback,location=your;pred_score=0.7787

@@ -122,3 +122,38 @@ By default it binds to `http://192.168.10.8:8000`. Adjust the `host` in `server.
 - Without FFmpeg, only `.wav` uploads are accepted; with FFmpeg installed, common formats work.
 - Noise reduction runs when `noisereduce` is installed (already in requirements). You can disable by uninstalling the package.
 - Logs will show where FFmpeg was resolved from, if available.
+
+## Optional NLP Backends
+
+### Transformer Seq2Seq (Experimental)
+
+You can enable a prompt-based sequence-to-sequence extractor (default model: `t5-small`) to produce structured JSON entities (intent, date/date_range, start_time, end_time, camera, part_of_day, direction).
+
+Setup:
+```powershell
+pip install -r Backend/requirements.txt
+$env:NLP_BACKEND = "transformer"
+# (Optional) choose another model, e.g.
+$env:TRANSFORMER_MODEL = "google/flan-t5-small"
+python Backend/server.py
+```
+
+Environment variables:
+```
+NLP_BACKEND=transformer
+TRANSFORMER_MODEL=t5-small
+TRANSFORMER_MAX_NEW_TOKENS=128
+TRANSFORMER_DEVICE=cuda   # or cpu
+```
+
+Merging strategy: transformer output is used first; heuristic rules fill any missing keys (never overwriting model-provided ones).
+
+### spaCy (Alternative)
+
+If you prefer rule/pattern driven extraction:
+```powershell
+python -m spacy download en_core_web_sm
+$env:NLP_BACKEND = "spacy"
+python Backend/server.py
+```
+If the model is missing a blank English pipeline is used and regex heuristics still apply.
