@@ -11,10 +11,10 @@ export default function DVRScreen({ route }) {
   const playbackUrlParam = params.playbackUrl;
   const alternates = params.alternates || [];
   const [altIndex, setAltIndex] = useState(0);
-  const cameraParam = '101';
+  const cameraParam = '102';
   const [ip, setIp] = useState(params.host || 'cctvtest.mspkapps.in');
   const [port, setPort] = useState(params.port || '519');
-  const [channel, setChannel] = useState(params.channel || '101');
+  const [channel, setChannel] = useState(params.channel || '102');
   const mode = playbackUrlParam ? 'playback' : 'live';
   const [isPlaying, setIsPlaying] = useState(true);
   const [lastError, setLastError] = useState(null);
@@ -29,7 +29,7 @@ export default function DVRScreen({ route }) {
   const [mpDate, setMpDate] = useState(isoDate);
   const [mpStart, setMpStart] = useState('10:00');
   const [mpEnd, setMpEnd] = useState('11:00');
-  const [mpCam, setMpCam] = useState(cameraParam || '1');
+  const [mpCam, setMpCam] = useState(cameraParam || '2');
   const [mpPattern, setMpPattern] = useState('/Streaming/Channels/{ch}?Playback=1&starttime={st}Z&endtime={et}Z');
   const [mpChannelMode, setMpChannelMode] = useState('auto'); // auto | raw
   const [manualUrl, setManualUrl] = useState('');
@@ -42,7 +42,7 @@ export default function DVRScreen({ route }) {
       const et = dateBase + 'T' + norm(mpEnd);
       const camInt = parseInt(mpCam || '1', 10);
       // Channel variants simple heuristic
-      let chVal = camInt + '01';
+      let chVal = camInt + '02';
       if (mpChannelMode === 'raw') chVal = mpCam;
       if (mpChannelMode === 'auto' && camInt < 10) {
         // prefer zero padded +01 form first
