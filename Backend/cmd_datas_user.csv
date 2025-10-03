@@ -1113,3 +1113,133 @@ yesterday morning at 10 am,playback,part_of_day=morning;date=2025-09-25;start_ti
 From 3.15 am to 4.15 am  I have to... Why did you stop the camera?,playback,start_time=15:00;end_time=15:00;pred_score=0.8412
 Yesterday from 10am to 11am play back code,playback,start_time=10:00;end_time=11:00;date=2025-09-25;pred_score=0.8681
 We played from 10am to 11am yesterday morning.,playback,part_of_day=morning;start_time=10:00;end_time=11:00;date=2025-09-25;pred_score=0.9138
+Hi  what are you?,playback,pred_score=0.7873
+I played from 10am to 1pm in the morning,playback,part_of_day=morning;start_time=10:00;end_time=13:00;location=the;pred_score=0.7687
+Playback from 10 am to 12 am,playback,start_time=10:00;end_time=00:00;pred_score=0.9366
+Payback from 10 am to 1 pm,playback,start_time=10:00;end_time=13:00;pred_score=0.9253
+From 10 in the morning till 1 in the afternoon,playback,start_time=10:00;end_time=13:00;part_of_day=morning;location=the;pred_score=0.6413
+text,intent,entities
+From 10 in the morning till 1 in the afternoon,playback,start_time=10:00;end_time=13:00
+From 10 in the morning until 1 in the afternoon,playback,start_time=10:00;end_time=13:00
+From 10 this morning until 1 this afternoon,playback,start_time=10:00;end_time=13:00
+From 10 a.m. to 1 p.m.,playback,start_time=10:00;end_time=13:00
+From 10am to 1pm,playback,start_time=10:00;end_time=13:00
+From 10 AM through 1 PM,playback,start_time=10:00;end_time=13:00
+From 10:00 am to 1:00 pm,playback,start_time=10:00;end_time=13:00
+From 10:00 to 13:00,playback,start_time=10:00;end_time=13:00
+Show playback from 10am to 1pm,playback,start_time=10:00;end_time=13:00
+Give me playback from 10am until 1pm,playback,start_time=10:00;end_time=13:00
+Playback from 10 in the morning to 1 in the afternoon,playback,start_time=10:00;end_time=13:00
+Retrieve video from 10am to 1pm,playback,start_time=10:00;end_time=13:00
+I need recording from 10am till 1pm,playback,start_time=10:00;end_time=13:00
+Video between 10am and 1pm,playback,start_time=10:00;end_time=13:00
+Footage between 10 and 1 (morning to afternoon),playback,start_time=10:00;end_time=13:00
+Footage from ten in the morning to one in the afternoon,playback,start_time=10:00;end_time=13:00
+Show the clip from ten a.m. to one p.m.,playback,start_time=10:00;end_time=13:00
+Play recording from 10 to 1 pm,playback,start_time=10:00;end_time=13:00
+Play back video from 10 a.m. through 1 p.m.,playback,start_time=10:00;end_time=13:00
+Playback window 10:00-13:00,playback,start_time=10:00;end_time=13:00
+Need stream from 10 to 1,playback,start_time=10:00;end_time=13:00
+Segment from 10 morning until 1 afternoon,playback,start_time=10:00;end_time=13:00
+Fetch the recording from 10am up to 1pm,playback,start_time=10:00;end_time=13:00
+I want the timeline 10am to 1pm,playback,start_time=10:00;end_time=13:00
+From ten AM until one PM,playback,start_time=10:00;end_time=13:00
+Between ten AM and one PM,playback,start_time=10:00;end_time=13:00
+Time range 10am – 1pm,playback,start_time=10:00;end_time=13:00
+Show me everything from 10am to 1pm,playback,start_time=10:00;end_time=13:00
+Playback clips 10am-1pm,playback,start_time=10:00;end_time=13:00
+Pull the recording covering 10 to 1,playback,start_time=10:00;end_time=13:00
+Need CCTV from 10 to 1 pm,playback,start_time=10:00;end_time=13:00
+Camera footage from 10 to 13 hours,playback,start_time=10:00;end_time=13:00
+Retrieve CCTV between 10:00 and 13:00,playback,start_time=10:00;end_time=13:00
+Replay from 10 a m to 1 p m,playback,start_time=10:00;end_time=13:00
+Play back from 10 to 1 (today),playback,start_time=10:00;end_time=13:00
+Show today from 10 to 1,playback,start_time=10:00;end_time=13:00;date=TODAY
+Today from 10am to 1pm,playback,start_time=10:00;end_time=13:00;date=TODAY
+Get today’s recording 10 to 1,playback,start_time=10:00;end_time=13:00;date=TODAY
+For today between 10 and 13,playback,start_time=10:00;end_time=13:00;date=TODAY
+On today from 10 to 1 pm,playback,start_time=10:00;end_time=13:00;date=TODAY
+This morning 10 to 1 this afternoon,playback,start_time=10:00;end_time=13:00;date=TODAY
+From 10 in the morning to 1 after noon today,playback,start_time=10:00;end_time=13:00;date=TODAY
+Playback of earlier today 10–13,playback,start_time=10:00;end_time=13:00;date=TODAY
+Show earlier today from 10 to 1,playback,start_time=10:00;end_time=13:00;date=TODAY
+Yesterday from 10am to 1pm,playback,start_time=10:00;end_time=13:00;date=YESTERDAY
+Yesterday between 10 and 13,playback,start_time=10:00;end_time=13:00;date=YESTERDAY
+Recording yesterday 10 to 1,playback,start_time=10:00;end_time=13:00;date=YESTERDAY
+Playback for yesterday 10am till 1pm,playback,start_time=10:00;end_time=13:00;date=YESTERDAY
+Show me yesterday from ten to one,playback,start_time=10:00;end_time=13:00;date=YESTERDAY
+Tomorrow 10am to 1pm,playback,start_time=10:00;end_time=13:00;date=TOMORROW
+Next Monday from 10am to 1pm,playback,start_time=10:00;end_time=13:00;date=NEXT_MON
+Last Monday 10 to 1,playback,start_time=10:00;end_time=13:00;date=LAST_MON
+This Monday 10 to 1,playback,start_time=10:00;end_time=13:00;date=THIS_MON
+On 5th September from 10am to 1pm,playback,start_time=10:00;end_time=13:00;date=2025-09-05
+Sept 5 10:00 to 13:00,playback,start_time=10:00;end_time=13:00;date=2025-09-05
+5/9/2025 from 10 to 1,playback,start_time=10:00;end_time=13:00;date=2025-09-05
+2025-09-05 10:00 to 13:00,playback,start_time=10:00;end_time=13:00;date=2025-09-05
+05-09-2025 10:00-13:00,playback,start_time=10:00;end_time=13:00;date=2025-09-05
+On 05/09/25 from 10 to 1 pm,playback,start_time=10:00;end_time=13:00;date=2025-09-05
+The day before yesterday 10 to 1,playback,start_time=10:00;end_time=13:00;date=DAY_BEFORE_YESTERDAY
+Day before yesterday from 10 am to 1 pm,playback,start_time=10:00;end_time=13:00;date=DAY_BEFORE_YESTERDAY
+Two days ago 10 to 1,playback,start_time=10:00;end_time=13:00;date=DAY_BEFORE_YESTERDAY
+From 10 this morning to 1 this afternoon camera one,playback,start_time=10:00;end_time=13:00;camera=1
+From 10am to 1pm camera 1,playback,start_time=10:00;end_time=13:00;camera=1
+Playback 10am-1pm camera 2,playback,start_time=10:00;end_time=13:00;camera=2
+Show video 10 to 1 cam 3,playback,start_time=10:00;end_time=13:00;camera=3
+Footage 10 to 13 channel 4,playback,start_time=10:00;end_time=13:00;camera=4
+Give me 10 to 1 for camera five,playback,start_time=10:00;end_time=13:00;camera=5
+Retrieve 10 to 1 for cam six,playback,start_time=10:00;end_time=13:00;camera=6
+Show 10 to 1 for cam seven,playback,start_time=10:00;end_time=13:00;camera=7
+Playback 10 to 1 ch 8,playback,start_time=10:00;end_time=13:00;camera=8
+Playback 10 to 1 ch nine,playback,start_time=10:00;end_time=13:00;camera=9
+Morning 10 to 1 afternoon segment,playback,start_time=10:00;end_time=13:00
+Need the morning-to-afternoon block (10 to 1),playback,start_time=10:00;end_time=13:00
+Full interval ten to one pm,playback,start_time=10:00;end_time=13:00
+All events from 10 until 1,playback,start_time=10:00;end_time=13:00
+Events between 10 and 1 today,playback,start_time=10:00;end_time=13:00;date=TODAY
+Summarize 10 to 1 (but playback),playback,start_time=10:00;end_time=13:00
+“From 10 in the morning till 1 in the afternoon” playback,playback,start_time=10:00;end_time=13:00
+Playback for the interval starting 10:00 ending 13:00,playback,start_time=10:00;end_time=13:00
+I need CCTV from ten hundred hours to thirteen hundred hours,playback,start_time=10:00;end_time=13:00
+Between 1000 and 1300 hours,playback,start_time=10:00;end_time=13:00
+Pull logs from 10am to 1pm (video),playback,start_time=10:00;end_time=13:00
+Tamil mixed காலை 10 மணிக்கு இருந்து மதியம் 1 மணி வரை பதிவு காட்டவும்,playback,start_time=10:00;end_time=13:00;date=TODAY
+காலை பத்து மணி முதல் மதியம் ஒரு மணி வரை,playback,start_time=10:00;end_time=13:00
+காலை 10 முதல் 1 வரை பதிவு,playback,start_time=10:00;end_time=13:00
+இன்று காலை 10 முதல் மதியம் 1 வரை,playback,start_time=10:00;end_time=13:00;date=TODAY
+நேற்று காலை 10 முதல் மதியம் 1 வரை,playback,start_time=10:00;end_time=13:00;date=YESTERDAY
+நேற்று 10 மணி முதல் 1 மணி வரைக்காட்டு,playback,start_time=10:00;end_time=13:00;date=YESTERDAY
+காலை பத்து மணி முதல் மதியம் ஒரு மணி (ப்ளேபேக்),playback,start_time=10:00;end_time=13:00
+இன்று 10 மணி முதல் 1 மணி காமிரா 1,playback,start_time=10:00;end_time=13:00;date=TODAY;camera=1
+Show playback from morning ten to afternoon one,playback,start_time=10:00;end_time=13:00
+Morning ten through early afternoon one,playback,start_time=10:00;end_time=13:00
+Playback request: 10am–1pm window,playback,start_time=10:00;end_time=13:00
+Requesting video: from 10 AM until 1 PM,playback,start_time=10:00;end_time=13:00
+I want the captured footage between 10 and 1,playback,start_time=10:00;end_time=13:00
+All camera footage from 10 to 1,playback,start_time=10:00;end_time=13:00
+Fetch recorded segment 10 to 1 pm,playback,start_time=10:00;end_time=13:00
+Give recorded interval 10a to 1p,playback,start_time=10:00;end_time=13:00
+Replay 10am until 1pm for camera one,playback,start_time=10:00;end_time=13:00;camera=1
+Replay from 10a to 1p (today) cam2,playback,start_time=10:00;end_time=13:00;date=TODAY;camera=2
+Playback clip 10a..1p ch3,playback,start_time=10:00;end_time=13:00;camera=3
+Video interval ten to one (today),playback,start_time=10:00;end_time=13:00;date=TODAY
+Need stored video 10 through 13,playback,start_time=10:00;end_time=13:00
+Stored footage 10–13 today,playback,start_time=10:00;end_time=13:00;date=TODAY
+Please show 10am to 1pm archive,playback,start_time=10:00;end_time=13:00
+Archive segment 10:00 to 13:00,playback,start_time=10:00;end_time=13:00
+Archive window 10–13 hours,playback,start_time=10:00;end_time=13:00
+Load playback 10 to 1,playback,start_time=10:00;end_time=13:00
+Load recorded data from 10 to 1 pm,playback,start_time=10:00;end_time=13:00
+Playback ten hundred to thirteen hundred,playback,start_time=10:00;end_time=13:00
+Retrieve segment starting 10:00 ending 13:00,playback,start_time=10:00;end_time=13:00
+Pull the slice 10:00–13:00,playback,start_time=10:00;end_time=13:00
+Slice from 10 to 1 pm,playback,start_time=10:00;end_time=13:00
+Time slice ten to one pm,playback,start_time=10:00;end_time=13:00
+Video slice 10–13,playback,start_time=10:00;end_time=13:00
+Get me morning 10 to afternoon 1,playback,start_time=10:00;end_time=13:00
+Morning block (10) to early afternoon (1),playback,start_time=10:00;end_time=13:00
+Show that interval ten to one,playback,start_time=10:00;end_time=13:00
+Cam 1 from 10 to 1,playback,start_time=10:00;end_time=13:00;camera=1
+Channel 2 between 10 and 1,playback,start_time=10:00;end_time=13:00;camera=2
+Channel 3 playback 10-13,playback,start_time=10:00;end_time=13:00;camera=3
+Camera four 10am till 1pm,playback,start_time=10:00;end_time=13:00;camera=4It's 10 in the morning. It's 10 in the afternoon.,playback,part_of_day=morning;location=the;pred_score=0.6148
+from 10 am to 1 pm,playback,start_time=10:00;end_time=13:00;pred_score=0.9427

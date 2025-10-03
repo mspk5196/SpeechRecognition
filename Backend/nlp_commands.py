@@ -227,7 +227,7 @@ class LocalNLP:
 
     def extract_entities(self, command_text):
         text_lc = command_text.lower()
-        # Part-of-day detection for inference of ambiguous times
+        # Detect part-of-day first (retain original list)
         part_of_day = None
         for pod, variants in {
             'morning': ['morning','முற்பகல்'],
@@ -238,15 +238,25 @@ class LocalNLP:
             if any(v in text_lc for v in variants):
                 part_of_day = pod
                 break
-        # Exact / containment mapping (collect but don't early-return so we can refine dates/times)
-        collected = {}
+
+        # New dynamic patterns (numeric range without am/pm, single from time, X in the morning ... )
+        numeric_range = re.search(r"\bfrom\s+(\d{1,2})(?::(\d{2}))?\s*(?:to|-|until|till)\s+(\d{1,2})(?::(\d{2}))?\b", text_lc)
+        single_from = re.search(r"\bfrom\s+(\d{1,2})(?::(\d{2}))?\b(?!\s*(?:to|-|until|till))", text_lc)
+        pod_phrases = {
+            'morning': re.search(r"\b(\d{1,2})(?::(\d{2}))?\s+in\s+the\s+morning\b", text_lc),
+            'afternoon': re.search(r"\b(\d{1,2})(?::(\d{2}))?\s+in\s+the\s+afternoon\b", text_lc),
+            'evening': re.search(r"\b(\d{1,2})(?::(\d{2}))?\s+in\s+the\s+evening\b", text_lc),
+            'night': re.search(r"\b(\d{1,2})(?::(\d{2}))?\s+(?:at|in\s+the)\s+night\b", text_lc)
+        }
+
+        # Exact / containment mapping
+        collected: dict[str,str] = {}
         for base, entity_str in self.entity_map.items():
             if base in text_lc or text_lc in base:
                 try:
-                    entity_pairs = [p for p in entity_str.split(";") if p]
-                    for pair in entity_pairs:
-                        if "=" in pair:
-                            k,v = pair.split("=",1)
+                    for pair in [p for p in entity_str.split(';') if p]:
+                        if '=' in pair:
+                            k,v = pair.split('=',1)
                             if k.strip() and v.strip():
                                 collected[k.strip()] = v.strip()
                 except Exception:
@@ -264,7 +274,7 @@ class LocalNLP:
             entities['start_time'] = re.sub(r"\s+", "", range_match.group(1))
             entities['end_time'] = re.sub(r"\s+", "", range_match.group(2))
 
-        # O'clock pattern (e.g., 10 o'clock / 10 o clock / 10 o’ clock)
+    # O'clock pattern (e.g., 10 o'clock / 10 o clock / 10 o’ clock)
         if 'start_time' not in entities:
             oclock_match = re.search(r"\b(\d{1,2})\s*(?:o['’]?\s*clock|o\s*clock|o'clock)\b", text_lc)
             if oclock_match:
@@ -294,6 +304,33 @@ class LocalNLP:
                 h2,m2,ap2 = all_times[-1]
                 entities['start_time'] = f"{h1}:{m1 or '00'}{ap1}"
                 entities['end_time'] = f"{h2}:{m2 or '00'}{ap2}"
+
+        # Apply numeric_range if present and no explicit am/pm times already
+        if numeric_range and 'start_time' not in entities and 'end_time' not in entities:
+            h1 = int(numeric_range.group(1)); m1 = numeric_range.group(2) or '00'
+            h2 = int(numeric_range.group(3)); m2 = numeric_range.group(4) or '00'
+            if 0 <= h1 <= 23 and 0 <= h2 <= 23:
+                entities['start_time'] = f"{h1:02d}:{m1 if len(m1)==2 else '00'}"
+                entities['end_time'] = f"{h2:02d}:{m2 if len(m2)==2 else '00'}"
+
+        # Single 'from 10' pattern (no end) -> start_time only
+        if single_from and 'start_time' not in entities:
+            fh = int(single_from.group(1)); fm = single_from.group(2) or '00'
+            if 0 <= fh <= 23:
+                entities['start_time'] = f"{fh:02d}:{fm if len(fm)==2 else '00'}"
+
+        # Phrases like '10 in the morning'
+        if 'start_time' not in entities:
+            for pod_lbl, match in pod_phrases.items():
+                if match:
+                    hh = int(match.group(1)); mm = match.group(2) or '00'
+                    if pod_lbl == 'afternoon' and 1 <= hh <= 11:
+                        hh += 12
+                    if pod_lbl in {'evening','night'} and 1 <= hh <= 11:
+                        hh += 12
+                    entities['start_time'] = f"{hh:02d}:{mm if len(mm)==2 else '00'}"
+                    entities['part_of_day'] = entities.get('part_of_day', pod_lbl)
+                    break
 
         # Direction detection for PTZ
         if any(w in text_lc for w in ["left", "right", "up", "down"]):

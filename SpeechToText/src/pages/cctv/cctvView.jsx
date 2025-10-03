@@ -1,21 +1,36 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { VLCPlayer } from 'react-native-vlc-media-player';
-import { CCTV_USER, CCTV_PASSWORD } from '../../util/env';
+import { CCTV_USER, CCTV_PASSWORD, API_URL } from '../../util/env';
 
 export default function DVRScreen({ route }) {
   const playerRef = useRef(null);
   const [username] = useState(CCTV_USER);
   const [password] = useState(CCTV_PASSWORD);
-  const params = route?.params || {};
-  const playbackUrlParam = params.playbackUrl;
-  const alternates = params.alternates || [];
+
+  // Route params from navigation after transcription
+  const playbackUrlParam = route.params?.playbackUrl || null;
+  const alternatesParam = route.params?.alternates || [];
+  const cameraParam = route.params?.camera || route.params?.channel;
+
+  // Extract host/port/channel defaults from first playback candidate if available
+  const parseAuthority = (url) => {
+    try {
+      if (!url) return {}; // fallback
+      const m = url.match(/^rtsp:\/\/[^@]+@([^\/]+)(\/.*)?$/i);
+      if (!m) return {};
+      const hostPort = m[1];
+      const [host, port] = hostPort.split(':');
+      return { host, port: port || '554' };
+    } catch { return {}; }
+  };
+  const auth = parseAuthority(playbackUrlParam || alternatesParam[0]);
+
+  const [ip, setIp] = useState(auth.host || 'cctvtest.mspkapps.in');
+  const [port, setPort] = useState(auth.port || '554');
+  const [channel, setChannel] = useState(cameraParam ? (parseInt(cameraParam,10).toString()) : '1');
+
   const [altIndex, setAltIndex] = useState(0);
-  const cameraParam = '102';
-  const [ip, setIp] = useState(params.host || 'cctvtest.mspkapps.in');
-  const [port, setPort] = useState(params.port || '519');
-  const [channel, setChannel] = useState(params.channel || '102');
-  const mode = playbackUrlParam ? 'playback' : 'live';
   const [isPlaying, setIsPlaying] = useState(true);
   const [lastError, setLastError] = useState(null);
   const [reloadCount, setReloadCount] = useState(0);
@@ -29,10 +44,13 @@ export default function DVRScreen({ route }) {
   const [mpDate, setMpDate] = useState(isoDate);
   const [mpStart, setMpStart] = useState('10:00');
   const [mpEnd, setMpEnd] = useState('11:00');
-  const [mpCam, setMpCam] = useState(cameraParam || '2');
-  const [mpPattern, setMpPattern] = useState('/Streaming/Channels/{ch}?Playback=1&starttime={st}Z&endtime={et}Z');
+  const [mpCam, setMpCam] = useState(cameraParam || '1');
+  const [mpPattern, setMpPattern] = useState('/Streaming/tracks/{ch}?starttime={st}Z&endtime={et}Z');
   const [mpChannelMode, setMpChannelMode] = useState('auto'); // auto | raw
   const [manualUrl, setManualUrl] = useState('');
+
+  const alternates = alternatesParam;
+  const mode = playbackUrlParam ? 'playback' : 'live';
 
   const buildManual = useCallback(() => {
     try {
@@ -42,19 +60,15 @@ export default function DVRScreen({ route }) {
       const et = dateBase + 'T' + norm(mpEnd);
       const camInt = parseInt(mpCam || '1', 10);
       // Channel variants simple heuristic
-      let chVal = camInt + '02';
+      let chVal = camInt + '01';
       if (mpChannelMode === 'raw') chVal = mpCam;
       if (mpChannelMode === 'auto' && camInt < 10) {
-        // prefer zero padded +01 form first
         chVal = camInt.toString().padStart(2, '0') + '01';
       }
       let pattern = mpPattern;
-      // inject channel token
       pattern = pattern.replace('{channel}', chVal).replace('{ch}', chVal);
-      // ensure time placeholders
       if (!pattern.includes('{st}')) pattern += (pattern.includes('?') ? '&' : '?') + 'starttime={st}Z&endtime={et}Z';
       pattern = pattern.replace('{st}', st).replace('{et}', et);
-      // Prepend authority if pattern not full URL
       let full;
       if (pattern.startsWith('rtsp://')) full = pattern; else full = `rtsp://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${ip}:${port}${pattern}`;
       setManualUrl(full);
@@ -73,7 +87,6 @@ export default function DVRScreen({ route }) {
       }
       return playbackUrlParam;
     }
-    // return `rtsp://${username}:${password}@${ip}:${port}/Streaming/Channels/${1}?Playback=1&starttime=${'10:00'}Z&endtime=${'11:00'}Z`;
     return `rtsp://${username}:${password}@${ip}:${port}/Streaming/Channels/${channel}`;
   }, [manualUrl, playbackUrlParam, username, password, ip, port, channel, alternates, altIndex]);
 
@@ -109,6 +122,32 @@ export default function DVRScreen({ route }) {
     }
   };
 
+  // Mark success back to backend once a playback URL has played for a bit
+  useEffect(() => {
+    if (!playbackUrlParam && !manualUrl) return;
+    if (mode !== 'playback' && !manualUrl) return;
+    const timer = setTimeout(() => {
+      const activeUrl = getRtspUrl();
+      // Extract pattern guess and channel from URL
+      try {
+        const u = activeUrl.split('?')[0];
+        let patternName = 'unknown';
+        if (u.includes('/Streaming/tracks/')) patternName = 'tracks';
+        else if (u.includes('Playback=1')) patternName = 'playflag';
+        else if (u.includes('/ISAPI/Streaming/tracks/')) patternName = 'isapi_tracks';
+        else if (u.includes('/Streaming/Channels/')) patternName = 'base';
+        const chMatch = u.match(/\/(tracks|Channels)\/([^?]+)$/i);
+        const ch = chMatch ? chMatch[2] : cameraParam || channel;
+        fetch(`${API_URL || ''}/playback/mark_success`, {
+          method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `pattern=${encodeURIComponent(patternName)}&channel=${encodeURIComponent(ch)}`
+        }).catch(() => {});
+      } catch (_) {}
+    }, 4000); // 4s of stable playback implies success
+    return () => clearTimeout(timer);
+  }, [altIndex, manualUrl, playbackUrlParam, mode, getRtspUrl, cameraParam, channel]);
+
   useEffect(() => {
     if (mode === 'playback' || manualUrl) return; // don't auto reload playback or manual
     const interval = setInterval(() => {
@@ -131,6 +170,9 @@ export default function DVRScreen({ route }) {
           <Text style={styles.debugLabel}>Mode: <Text style={styles.debugValue}>{manualUrl ? 'manual' : mode}</Text></Text>
           <Text style={styles.debugLabel}>Reloads: <Text style={styles.debugValue}>{reloadCount}</Text></Text>
           <Text style={styles.debugLabel}>TCP: <Text style={styles.debugValue}>{useTcp ? 'on' : 'off'}</Text></Text>
+          {alternates.length > 1 && mode==='playback' && !manualUrl && (
+            <Text style={styles.debugLabel}>Alternate {altIndex+1}/{alternates.length}</Text>
+          )}
           {lastError && (
             <Text style={[styles.debugLabel, { color: '#ff6b6b' }]}>Last Error: <Text style={styles.debugValue}>{JSON.stringify(lastError)}</Text></Text>
           )}
@@ -144,9 +186,14 @@ export default function DVRScreen({ route }) {
             <TouchableOpacity style={styles.smallBtn} onPress={() => setNetworkCachingMs(ms => ms === 1500 ? 300 : 1500)}>
               <Text style={styles.smallBtnText}>Cache {networkCachingMs}ms</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.smallBtn} onPress={() => { setManualOpen(o => !o); }}>
+            <TouchableOpacity style={styles.smallBtn} onPress={() => setManualOpen(o => !o)}>
               <Text style={styles.smallBtnText}>{manualOpen ? 'Hide Manual' : 'Manual'}</Text>
             </TouchableOpacity>
+            {alternates.length > 1 && mode==='playback' && !manualUrl && (
+              <TouchableOpacity style={styles.smallBtn} onPress={() => { setAltIndex(i => (i + 1) % alternates.length); setReloadCount(c=>c+1); }}>
+                <Text style={styles.smallBtnText}>Next Alt</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -196,7 +243,6 @@ export default function DVRScreen({ route }) {
         <VLCPlayer
           key={sanitizedUrl + reloadCount + (useTcp?'tcp':'udp') + altIndex}
           ref={playerRef}
-          // source={{ uri: `rtsp://${CCTV_USER}:${CCTV_PASSWORD}@cctvtest.mspkapps.in:519/Streaming/Channels/${1}?Playback=1&starttime='10:00'Z&endtime='11:00'Z` }}
           source={{ uri: getRtspUrl(), initType: 2 }}
           autoplay={isPlaying}
           style={styles.video}
@@ -210,16 +256,6 @@ export default function DVRScreen({ route }) {
           onError={handleError}
           mediaOptions={mediaOptions}
         />
-
-        {/* <VLCPlayer
-          source={{
-            uri: `rtsp://${CCTV_USER}:${CCTV_PASSWORD}@cctvtest.mspkapps.in:519/Streaming/tracks/101?starttime=20250926T073000Z&endtime=20250926T110000Z`
-          }}
-          autoplay={true}
-          style={styles.video}
-          autoAspectRatio={true}
-          resizeMode="contain"
-        /> */}
       </ScrollView>
     </View>
   );
