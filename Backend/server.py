@@ -282,11 +282,14 @@ async def transcribe_audio(
                                 base101 = f"{cam_int}01"  # e.g. 1 -> 101
                                 if base101 not in channel_variants:
                                     channel_variants.append(base101)
-                                zp = f"{cam_int:02d}01"    # zero padded e.g. 0101
+                                zp = f"{cam_int}01"    
+                                # zp = f"{cam_int:02d}01"    # zero padded e.g. 0101
                                 if zp not in channel_variants:
-                                    channel_variants.append(zp)
+                                    channel_variants.append(base101)
+                                    # channel_variants.append(zp)
                                 if str(cam_int) not in channel_variants:  # plain camera number
-                                    channel_variants.append(str(cam_int))
+                                    # channel_variants.append(str(cam_int))
+                                    channel_variants.append(base101)
 
                                 # Vendor specific pattern selection
                                 vendor = os.getenv('CCTV_VENDOR', '').lower().strip()

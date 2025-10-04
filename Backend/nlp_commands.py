@@ -282,14 +282,19 @@ class LocalNLP:
                 break
 
         # New dynamic patterns (numeric range without am/pm, single from time, X in the morning ... )
-        numeric_range = re.search(r"\bfrom\s+(\d{1,2})(?::(\d{2}))?\s*(?:to|-|until|till)\s+(\d{1,2})(?::(\d{2}))?\b", text_lc)
-        single_from = re.search(r"\bfrom\s+(\d{1,2})(?::(\d{2}))?\b(?!\s*(?:to|-|until|till))", text_lc)
+        # Accept both ':' and '.' as time separators
+        numeric_range = re.search(r"\bfrom\s+(\d{1,2})(?:[:.](\d{2}))?\s*(?:to|-|until|till)\s+(\d{1,2})(?:[:.](\d{2}))?\b", text_lc)
+        single_from = re.search(r"\bfrom\s+(\d{1,2})(?:[:.](\d{2}))?\b(?!\s*(?:to|-|until|till))", text_lc)
         pod_phrases = {
-            'morning': re.search(r"\b(\d{1,2})(?::(\d{2}))?\s+in\s+the\s+morning\b", text_lc),
-            'afternoon': re.search(r"\b(\d{1,2})(?::(\d{2}))?\s+in\s+the\s+afternoon\b", text_lc),
-            'evening': re.search(r"\b(\d{1,2})(?::(\d{2}))?\s+in\s+the\s+evening\b", text_lc),
-            'night': re.search(r"\b(\d{1,2})(?::(\d{2}))?\s+(?:at|in\s+the)\s+night\b", text_lc)
+            'morning': re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s+in\s+the\s+morning\b", text_lc),
+            'afternoon': re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s+in\s+the\s+afternoon\b", text_lc),
+            'evening': re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s+in\s+the\s+evening\b", text_lc),
+            'night': re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s+(?:at|in\s+the)\s+night\b", text_lc)
         }
+        # Reverse phrasing: 'evening at 5.38' / 'night at 11' etc.
+        pod_reverse = re.search(r"\b(morning|afternoon|evening|night)\s+(?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\b", text_lc)
+        # Generic 'at 5.38' using part_of_day if present
+        at_time = re.search(r"\bat\s+(\d{1,2})(?:[:.](\d{2}))?\b", text_lc)
 
         # Exact / containment mapping
         collected: dict[str,str] = {}
@@ -339,7 +344,7 @@ class LocalNLP:
                     entities['start_time'] = f"{hour:02d}:00"
 
         # Single times (collect if not already captured)
-        all_times = re.findall(r"\b(\d{1,2})(?::(\d{2}))?\s*(a\.m\.|p\.m\.|am|pm)\b", text_lc)
+        all_times = re.findall(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.m\.|p\.m\.|am|pm)\b", text_lc)
         if all_times and 'start_time' not in entities:
             if len(all_times) == 1:
                 h, m, ap = all_times[0]
@@ -377,6 +382,24 @@ class LocalNLP:
                     entities['start_time'] = f"{hh:02d}:{mm if len(mm)==2 else '00'}"
                     entities['part_of_day'] = entities.get('part_of_day', pod_lbl)
                     break
+        # Reverse phrasing 'evening at 5.38'
+        if 'start_time' not in entities and pod_reverse:
+            pod_lbl = pod_reverse.group(1)
+            hh = int(pod_reverse.group(2)); mm = pod_reverse.group(3) or '00'
+            if pod_lbl == 'afternoon' and 1 <= hh <= 11:
+                hh += 12
+            if pod_lbl in {'evening','night'} and 1 <= hh <= 11:
+                hh += 12
+            entities['start_time'] = f"{hh:02d}:{mm if len(mm)==2 else '00'}"
+            entities['part_of_day'] = entities.get('part_of_day', pod_lbl)
+        # 'at 5.38' with known part_of_day
+        if 'start_time' not in entities and part_of_day and at_time:
+            hh = int(at_time.group(1)); mm = at_time.group(2) or '00'
+            if part_of_day == 'afternoon' and 1 <= hh <= 11:
+                hh += 12
+            if part_of_day in {'evening','night'} and 1 <= hh <= 11:
+                hh += 12
+            entities['start_time'] = f"{hh:02d}:{mm if len(mm)==2 else '00'}"
 
         # Direction detection for PTZ
         if any(w in text_lc for w in ["left", "right", "up", "down"]):

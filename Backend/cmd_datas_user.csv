@@ -1268,3 +1268,13 @@ Yesterday morning 10 o'clock was the playback.,playback,part_of_day=morning;star
 Give playback for yesterday morning 10 a.m. to yesterday morning 12 a.m,playback,part_of_day=morning;date=2025-10-02;date_range_start=2025-10-02;date_range_end=2025-10-02;pred_score=0.9246
 I need an appointment with Dr. Mithiles. Send me the timing in whatsapp.,playback,location=whatsapp;pred_score=0.6987
 “ ”  “” “’””. ‘’. ’’ ‚’  ”‘”      ‚“  “ ’   ”   . “.” .   ‬ .    “"’" "”: ‘I’m sorry  I can’t help you. I’ve got to go to work.’' : “What’s going on in your head?’: ‘What do you think?”,playback,location=your;pred_score=0.7787
+From 10 in the morning yesterday to 11 in the morning yesterday,playback,part_of_day=morning;start_time=10:00;location=the;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;end_time=11:00;fallback_strategy=plus1h;pred_score=0.7795
+Playback from 10am to 12pm,playback,start_time=10:00;end_time=12:00;pred_score=0.8941
+from 10am to 12pm,playback,start_time=10:00;end_time=12:00;pred_score=0.8699
+Yesterday morning from 10 am to play back,playback,part_of_day=morning;time=10:00am;start_time=10:00;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;end_time=11:00;fallback_strategy=plus1h;pred_score=0.9221
+yesterday morning at 10am with camera 3 playback,playback,part_of_day=morning;camera=3;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;start_time=10:00;end_time=11:00;fallback_strategy=plus1h;pred_score=0.8175
+Yesterday morning at 10 am with camera 3 playback,playback,part_of_day=morning;camera=3;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;start_time=10:00;end_time=11:00;fallback_strategy=plus1h;pred_score=0.8639
+Yesterday evening  5-6. Playback.,playback,part_of_day=evening;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;pred_score=0.8623
+camera 6 yesterday evening at 5.38 play back,playback,part_of_day=evening;camera=6;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;pred_score=0.7525
+Yesterday morning at 10.38  camera 6 playback.,playback,part_of_day=morning;start_time=10:38;camera=6;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;end_time=11:38;fallback_strategy=plus1h;pred_score=0.8390
+Yesterday morning at 10.38 am I put 3rd number camera,playback,part_of_day=morning;time=10:38am;start_time=10:38;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;end_time=11:38;fallback_strategy=plus1h;pred_score=0.8449

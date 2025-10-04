@@ -21,14 +21,14 @@ export default function DVRScreen({ route }) {
       if (!m) return {};
       const hostPort = m[1];
       const [host, port] = hostPort.split(':');
-      return { host, port: port || '554' };
+      return { host, port: port || '519' };
     } catch { return {}; }
   };
   const auth = parseAuthority(playbackUrlParam || alternatesParam[0]);
 
   const [ip, setIp] = useState(auth.host || 'cctvtest.mspkapps.in');
-  const [port, setPort] = useState(auth.port || '554');
-  const [channel, setChannel] = useState(cameraParam ? (parseInt(cameraParam,10).toString()) : '1');
+  const [port, setPort] = useState(auth.port || '519');
+  const [channel, setChannel] = useState(cameraParam ? (parseInt(cameraParam,10).toString()) : '201');
 
   const [altIndex, setAltIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -81,12 +81,14 @@ export default function DVRScreen({ route }) {
 
   const getRtspUrl = useCallback(() => {
     if (manualUrl) return manualUrl;
+    
     if (playbackUrlParam) {
       if (alternates.length > 0) {
         return alternates[Math.min(altIndex, alternates.length - 1)];
       }
       return playbackUrlParam;
     }
+    console.log("hi");
     return `rtsp://${username}:${password}@${ip}:${port}/Streaming/Channels/${channel}`;
   }, [manualUrl, playbackUrlParam, username, password, ip, port, channel, alternates, altIndex]);
 
