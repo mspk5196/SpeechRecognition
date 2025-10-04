@@ -1278,3 +1278,42 @@ Yesterday evening  5-6. Playback.,playback,part_of_day=evening;date=2025-10-03;d
 camera 6 yesterday evening at 5.38 play back,playback,part_of_day=evening;camera=6;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;pred_score=0.7525
 Yesterday morning at 10.38  camera 6 playback.,playback,part_of_day=morning;start_time=10:38;camera=6;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;end_time=11:38;fallback_strategy=plus1h;pred_score=0.8390
 Yesterday morning at 10.38 am I put 3rd number camera,playback,part_of_day=morning;time=10:38am;start_time=10:38;date=2025-10-03;date_range_start=2025-10-03;date_range_end=2025-10-03;end_time=11:38;fallback_strategy=plus1h;pred_score=0.8449
+In the morning from 10.38am to 10.40am play back code,playback,part_of_day=morning;start_time=10:38;end_time=10:40;location=the;pred_score=0.8237
+Hi  how are you?,playback,pred_score=0.7916
+Vanakkam  how are you?,playback,pred_score=0.7916
+In the morning  play back from 10.48 to 10.49,playback,part_of_day=morning;start_time=10:48;end_time=10:49;location=the;pred_score=0.8252
+Yeah,playback,pred_score=0.7673
+Playback from 10.38am to 10.39am,playback,start_time=10:38;end_time=10:39;pred_score=0.9478
+It's 10.38 in the morning and the playbook is till 10.39.,playback,part_of_day=morning;start_time=10:38;location=the;end_time=11:38;fallback_strategy=plus1h;pred_score=0.7396
+Playback from 10.38 to 10.39,playback,start_time=10:38;end_time=10:39;pred_score=0.9478
+It's 10.42 in the morning and it's 11 o'clock now.,playback,part_of_day=morning;start_time=11:00;location=the;end_time=12:00;fallback_strategy=plus1h;pred_score=0.7278
+From last night 11 am to today morning 6 am  I am playing playback.,playback,part_of_day=morning;start_time=11:00;end_time=06:00;date=2025-10-04;date_range_start=2025-10-04;date_range_end=2025-10-04;pred_score=0.9309
+From 11.00 am to 11.01 am today  I have playback.,playback,start_time=11:00;end_time=11:01;date=2025-10-04;date_range_start=2025-10-04;date_range_end=2025-10-04;pred_score=0.9474
+play back from 1 to 10 in the morning,playback,part_of_day=morning;start_time=01:00;end_time=10:00;location=the;pred_score=0.8010
+Playback from 10-1 to 10-2 in the morning,playback,part_of_day=morning;start_time=02:00;location=the;date=2025-01-10;end_time=03:00;fallback_strategy=plus1h;pred_score=0.8531
+Here you go.,playback,pred_score=0.7871
+Play the code from 10.01 am to 10.12 am,playback,start_time=10:01;end_time=10:12;pred_score=0.9085
+In the morning  turn the flame from 10.01 to 10.02,playback,part_of_day=morning;start_time=10:01;end_time=10:02;location=the;pred_score=0.8077
+From 10 am to 10.30 am playback,playback,start_time=10:00;end_time=10:30;pred_score=0.9263
+From 10.01 AM to 10.10 AM  I played the playback.,playback,start_time=10:01;end_time=10:10;pred_score=0.9241
+With a playback of 11-12 in the morning,playback,part_of_day=morning;start_time=12:00;location=the;date=2025-12-11;end_time=13:00;fallback_strategy=plus1h;pred_score=0.7777
+Playback from 10 am to 10.01 am,playback,start_time=10:00;end_time=10:01;pred_score=0.9308
+Playback from 10am to 10.10pm,playback,start_time=10:00;end_time=22:10;pred_score=0.9322
+Play back from 10am to 10.15am,playback,start_time=10:00;end_time=10:15;pred_score=0.8824
+Payback will be given from 10am to 10.15am,playback,start_time=10:00;end_time=10:15;pred_score=0.8810
+Payback call from 10am to 10.10am,playback,start_time=10:00;end_time=10:10;pred_score=0.8748
+Playback from 10am to 10.10pm,playback,start_time=10:00;end_time=22:10;pred_score=0.9322
+Today in the morning from 10 am to 10.10 am I play back with camera 2,playback,part_of_day=morning;start_time=10:00;end_time=10:10;camera=2;location=the;date=2025-10-04;date_range_start=2025-10-04;date_range_end=2025-10-04;pred_score=0.8393
+Today morning from 10am to 10.1am I am going to play back,playback,part_of_day=morning;start_time=10:00;end_time=01:00;date=2025-10-04;date_range_start=2025-10-04;date_range_end=2025-10-04;pred_score=0.9251
+Today in the morning from 11.30 to 11.01 we will play the game.,playback,part_of_day=morning;start_time=11:30;end_time=11:01;location=the;date=2025-10-04;date_range_start=2025-10-04;date_range_end=2025-10-04;pred_score=0.8201
+In the morning  play from 10-1 to 10-2.,playback,part_of_day=morning;location=the;date=2025-01-10;pred_score=0.8276
+Playback from 10-1 to 10-2 in the morning. Playback from 8-10 in the evening and 10-12 in the night. Play back from 8:30 to 10:30 in the afternoon and 10:10 to 11:30 at night.,playback,part_of_day=morning;start_time=08:30;end_time=10:30;location=the;date=2025-01-10;pred_score=0.8226
+CNN.com will feature iReporter photos in a weekly Travel Snapshots gallery. Visit CNN.com/Travel each week for a new gallery of snapshots. Please submit your best shots of New York City for next week.,playback,location=a;date_range_start=2025-10-06;date_range_end=2025-10-12;pred_score=0.7057
+Playback from 10-1 to 10-2 in the morning.,playback,part_of_day=morning;start_time=02:00;location=the;date=2025-01-10;end_time=03:00;fallback_strategy=plus1h;pred_score=0.8531
+Greetings from the United States of America. Visit CNN.com/soulmatestories for a new look at the U.S. this holiday season. Follow us on Twitter @CNNOpinion and @MailOnline.,playback,pred_score=0.8528
+CNN.com will feature iReporter photos in a weekly Travel Snapshots gallery. Please submit your best shots of the U.S. for next week. Visit CNN.com/Travel next week for a new gallery of snapshots.,playback,location=a;date_range_start=2025-10-06;date_range_end=2025-10-12;pred_score=0.7070
+CNN.com will feature iReporter photos in a weekly Travel Snapshots gallery. Please submit your best shots of Taiwan for next week. Visit CNN.com/Travel next Wednesday for a new gallery of snapshots.,playback,location=a;date_range_start=2025-10-08;date_range_end=2025-10-08;date=2025-10-08;pred_score=0.6835
+Today morning from 10.01 am to 10.02 am Payback will be given. Payback starts at 10:01am and ends at 10.04am. Watch it live on CNN.com.,playback,part_of_day=morning;start_time=10:01;end_time=10:04;date=2025-10-04;date_range_start=2025-10-04;date_range_end=2025-10-04;pred_score=0.9177
+Vanakkam is a village in the province of Vanak  in southern Afghanistan. It is home to some of the country's most influential people. Vanakam is also known as the birthplace of the Afghan National Party.,playback,location=the;pred_score=0.6030
+This morning 10.01 to 10.02 Vareepaiyappa Kodavam. This morning is the Tamil version of this morning's Daily Discussion. We'll be talking about the theme of this week's episode of This Morning.,playback,part_of_day=morning;start_time=10:01;date_range_start=2025-09-29;date_range_end=2025-10-05;end_time=11:01;fallback_strategy=plus1h;pred_score=0.8774
+The daily Newsquiz tests your knowledge of stories you saw on CNN iReport.com. Today's Question of the Day will be the 10.01 am to 10.12 am Playback Board.,playback,start_time=10:01;end_time=10:12;date=2025-10-04;date_range_start=2025-10-04;date_range_end=2025-10-04;pred_score=0.8920

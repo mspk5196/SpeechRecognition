@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, TextInput, ScrollView, PanResponder } from 'react-native';
 import { VLCPlayer } from 'react-native-vlc-media-player';
 import { CCTV_USER, CCTV_PASSWORD, API_URL } from '../../util/env';
 
@@ -12,6 +12,7 @@ export default function DVRScreen({ route }) {
   const playbackUrlParam = route.params?.playbackUrl || null;
   const alternatesParam = route.params?.alternates || [];
   const cameraParam = route.params?.camera || route.params?.channel;
+  const expected = route.params?.expected || null; // { start_local_iso, end_local_iso, duration_ms }
 
   // Extract host/port/channel defaults from first playback candidate if available
   const parseAuthority = (url) => {
@@ -36,6 +37,16 @@ export default function DVRScreen({ route }) {
   const [reloadCount, setReloadCount] = useState(0);
   const [useTcp, setUseTcp] = useState(true);
   const [networkCachingMs, setNetworkCachingMs] = useState(1500);
+
+  // Auto-stop via media-time (stop at expected end if provided)
+  const [countdownMs, setCountdownMs] = useState(null);
+  const [endedByTimer, setEndedByTimer] = useState(false);
+  // Zoom & Pan state
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const baseScaleRef = useRef(1);
+  const pinchStartDistRef = useRef(null);
+  const lastPanRef = useRef({ x: 0, y: 0 });
 
   // Manual playback builder state
   const [manualOpen, setManualOpen] = useState(false);
@@ -105,6 +116,83 @@ export default function DVRScreen({ route }) {
     '--no-skip-frames',
   ];
 
+  const clearAutoStopTimers = useCallback(() => {
+    // no-op: timers removed; placeholder in case future server-driven control is added
+  }, []);
+
+  const pausePlayback = useCallback(() => {
+    try { playerRef.current?.pause && playerRef.current.pause(); } catch (_) {}
+    setIsPlaying(false);
+    setEndedByTimer(true);
+  }, []);
+
+  const getExpectedDurationMs = useCallback(() => {
+    // Prefer explicit duration; else compute from start/end; else 0
+    if (expected?.duration_ms && expected.duration_ms > 0) return expected.duration_ms;
+    if (expected?.start_local_iso && expected?.end_local_iso) {
+      const s = Date.parse(expected.start_local_iso);
+      const e = Date.parse(expected.end_local_iso);
+      if (!Number.isNaN(s) && !Number.isNaN(e)) return Math.max(0, e - s);
+    }
+    return 0;
+  }, [expected]);
+
+  // Pinch and pan gesture handlers
+  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (evt) => {
+        const t = evt?.nativeEvent?.touches || [];
+        return t.length === 2 || scale > 1; // pinch or pan when zoomed
+      },
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        const t = evt?.nativeEvent?.touches || [];
+        if (t.length === 2) return true; // pinch
+        return scale > 1 && (Math.abs(gestureState.dx) + Math.abs(gestureState.dy) > 4);
+      },
+      onStartShouldSetPanResponderCapture: (evt) => {
+        const t = evt?.nativeEvent?.touches || [];
+        return t.length === 2 || scale > 1;
+      },
+      onMoveShouldSetPanResponderCapture: (evt) => {
+        const t = evt?.nativeEvent?.touches || [];
+        return t.length === 2 || scale > 1;
+      },
+      onPanResponderGrant: (evt, gestureState) => {
+        lastPanRef.current = { ...translate };
+        baseScaleRef.current = scale;
+        if (evt.nativeEvent.touches && evt.nativeEvent.touches.length === 2) {
+          const [a, b] = evt.nativeEvent.touches;
+          const dx = a.pageX - b.pageX;
+          const dy = a.pageY - b.pageY;
+          pinchStartDistRef.current = Math.hypot(dx, dy);
+        } else {
+          pinchStartDistRef.current = null;
+        }
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (evt.nativeEvent.touches && evt.nativeEvent.touches.length === 2 && pinchStartDistRef.current) {
+          const [a, b] = evt.nativeEvent.touches;
+          const dx = a.pageX - b.pageX;
+          const dy = a.pageY - b.pageY;
+          const dist = Math.hypot(dx, dy);
+          const nextScale = clamp((dist / pinchStartDistRef.current) * baseScaleRef.current, 1, 4);
+          setScale(nextScale);
+        } else if (evt.nativeEvent.touches && evt.nativeEvent.touches.length === 1) {
+          const nx = lastPanRef.current.x + gestureState.dx;
+          const ny = lastPanRef.current.y + gestureState.dy;
+          setTranslate({ x: nx, y: ny });
+        }
+      },
+      onPanResponderRelease: () => {
+        baseScaleRef.current = scale;
+        lastPanRef.current = { ...translate };
+        pinchStartDistRef.current = null;
+      },
+      onPanResponderTerminationRequest: () => false,
+    })
+  ).current;
+
   const handleError = (e) => {
     console.error('VLC Player Error:', e);
     setLastError(e);
@@ -160,18 +248,51 @@ export default function DVRScreen({ route }) {
     return () => clearInterval(interval);
   }, [mode, manualUrl, isPlaying]);
 
+  // Reset auto-stop timers whenever source changes
+  useEffect(() => {
+    clearAutoStopTimers();
+    setEndedByTimer(false);
+    // Reset zoom when source changes
+    setScale(1);
+    setTranslate({ x: 0, y: 0 });
+  }, [manualUrl, altIndex, reloadCount, useTcp, networkCachingMs, clearAutoStopTimers]);
+
+  // Cleanup on unmount
+  useEffect(() => () => clearAutoStopTimers(), [clearAutoStopTimers]);
+
+  const formatMs = (ms) => {
+    if (ms == null) return '-';
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const mm = Math.floor(s / 60).toString().padStart(2, '0');
+    const ss = (s % 60).toString().padStart(2, '0');
+    return `${mm}:${ss}`;
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>
         {(manualUrl ? 'Manual Playback' : (mode === 'playback' ? 'Playback CCTV Stream' : 'Live CCTV Stream'))} {cameraParam ? `(Camera ${cameraParam})` : ''}
       </Text>
-      <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 20 }}>
+  <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 20 }} scrollEnabled={scale === 1}>
         <View style={styles.debugBox}>
           <Text style={styles.debugLabel}>RTSP URL:</Text>
           <Text style={styles.debugValue}>{sanitizedUrl}</Text>
           <Text style={styles.debugLabel}>Mode: <Text style={styles.debugValue}>{manualUrl ? 'manual' : mode}</Text></Text>
           <Text style={styles.debugLabel}>Reloads: <Text style={styles.debugValue}>{reloadCount}</Text></Text>
           <Text style={styles.debugLabel}>TCP: <Text style={styles.debugValue}>{useTcp ? 'on' : 'off'}</Text></Text>
+          {expected && (
+            <>
+              <Text style={styles.debugLabel}>Expected:</Text>
+              <Text style={styles.debugLabel}>- Start: <Text style={styles.debugValue}>{expected.start_local_iso || '-'}</Text></Text>
+              <Text style={styles.debugLabel}>- End: <Text style={styles.debugValue}>{expected.end_local_iso || '-'}</Text></Text>
+              <Text style={styles.debugLabel}>- Duration: <Text style={styles.debugValue}>{formatMs(getExpectedDurationMs())}</Text></Text>
+              <Text style={styles.debugLabel}>- Auto-stop: <Text style={styles.debugValue}>on (media-time)</Text></Text>
+              <Text style={styles.debugLabel}>- Remaining: <Text style={styles.debugValue}>{formatMs(countdownMs)}</Text></Text>
+              {endedByTimer && (
+                <Text style={[styles.debugLabel, { color: '#6cf' }]}>Reached end of requested window. Paused.</Text>
+              )}
+            </>
+          )}
           {alternates.length > 1 && mode==='playback' && !manualUrl && (
             <Text style={styles.debugLabel}>Alternate {altIndex+1}/{alternates.length}</Text>
           )}
@@ -190,6 +311,29 @@ export default function DVRScreen({ route }) {
             </TouchableOpacity>
             <TouchableOpacity style={styles.smallBtn} onPress={() => setManualOpen(o => !o)}>
               <Text style={styles.smallBtnText}>{manualOpen ? 'Hide Manual' : 'Manual'}</Text>
+            </TouchableOpacity>
+            {/* Playback controls */}
+            <TouchableOpacity style={styles.smallBtn} onPress={() => { 
+              try { 
+                if (playerRef.current?.resume) playerRef.current.resume();
+                else if (playerRef.current?.play) playerRef.current.play();
+              } catch (_) {}
+              setIsPlaying(true); 
+            }}>
+              <Text style={styles.smallBtnText}>Play</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.smallBtn} onPress={() => { try { playerRef.current?.pause && playerRef.current.pause(); } catch (_) {} setIsPlaying(false); }}>
+              <Text style={styles.smallBtnText}>Pause</Text>
+            </TouchableOpacity>
+            {/* Zoom controls */}
+            <TouchableOpacity style={styles.smallBtn} onPress={() => setScale(s => Math.min(4, s + 0.25))}>
+              <Text style={styles.smallBtnText}>Zoom +</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.smallBtn} onPress={() => setScale(s => { const ns = Math.max(1, s - 0.25); if (ns === 1) setTranslate({ x: 0, y: 0 }); return ns; })}>
+              <Text style={styles.smallBtnText}>Zoom -</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.smallBtn} onPress={() => { setScale(1); setTranslate({ x: 0, y: 0 }); baseScaleRef.current = 1; lastPanRef.current = { x: 0, y: 0 }; }}>
+              <Text style={styles.smallBtnText}>Reset Zoom</Text>
             </TouchableOpacity>
             {alternates.length > 1 && mode==='playback' && !manualUrl && (
               <TouchableOpacity style={styles.smallBtn} onPress={() => { setAltIndex(i => (i + 1) % alternates.length); setReloadCount(c=>c+1); }}>
@@ -242,22 +386,46 @@ export default function DVRScreen({ route }) {
           </View>
         )}
 
-        <VLCPlayer
-          key={sanitizedUrl + reloadCount + (useTcp?'tcp':'udp') + altIndex}
-          ref={playerRef}
-          source={{ uri: getRtspUrl(), initType: 2 }}
-          autoplay={isPlaying}
-          style={styles.video}
-          autoAspectRatio={true}
-          resizeMode="contain"
-          initType={2}
-          onBuffering={() => console.log('Buffering...')}
-          onPlaying={() => { console.log('Playing'); setLastError(null); }}
-          onPaused={() => console.log('Paused')}
-          onStopped={() => console.log('Stopped')}
-          onError={handleError}
-          mediaOptions={mediaOptions}
-        />
+        <View style={styles.videoWrapper} {...panResponder.panHandlers}>
+          <View style={[styles.transformer, { transform: [{ translateX: translate.x }, { translateY: translate.y }, { scale }] }]}>
+            <VLCPlayer
+              key={sanitizedUrl + reloadCount + (useTcp?'tcp':'udp') + altIndex}
+              ref={playerRef}
+              source={{ uri: getRtspUrl(), initType: 2 }}
+              autoplay={isPlaying}
+              style={styles.video}
+              autoAspectRatio={true}
+              resizeMode="contain"
+              initType={2}
+              onBuffering={() => console.log('Buffering...')}
+              onPlaying={() => { console.log('Playing'); setLastError(null); setEndedByTimer(false); }}
+              onPaused={() => console.log('Paused')}
+              onStopped={() => console.log('Stopped')}
+              onProgress={(e) => {
+                try {
+                  const toMs = (v) => {
+                    if (v == null || Number.isNaN(v)) return 0;
+                    const n = Number(v);
+                    return n < 10000 ? Math.floor(n * 1000) : Math.floor(n);
+                  };
+                  const curMs = toMs(e?.currentTime ?? e?.position ?? 0);
+                  const dur = getExpectedDurationMs();
+                  if (dur > 0) {
+                    const rem = Math.max(0, dur - curMs);
+                    setCountdownMs(rem);
+                    if (rem <= 250) {
+                      try { playerRef.current?.pause && playerRef.current.pause(); } catch(_) {}
+                      setIsPlaying(false);
+                      setEndedByTimer(true);
+                    }
+                  }
+                } catch(_) {}
+              }}
+              onError={handleError}
+              mediaOptions={mediaOptions}
+            />
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -267,7 +435,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#111' },
   scroll: { flex: 1 },
   header: { fontSize: 20, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginVertical: 10 },
-  video: { height: 260,  marginHorizontal: 10, borderRadius: 8 },
+  videoWrapper: { height: 260, marginHorizontal: 10, borderRadius: 8, overflow: 'hidden', backgroundColor: '#000' },
+  transformer: { width: '100%', height: '100%' },
+  video: { width: '100%', height: '100%' },
   debugBox: { padding: 12, backgroundColor: '#1e1e1e', marginHorizontal: 10, marginBottom: 8, borderRadius: 8 },
   debugLabel: { color: '#bbb', fontSize: 12, marginTop: 2 },
   debugValue: { color: '#fff' },

@@ -139,8 +139,13 @@ const SpeechToText = () => {
 
             const result = await response.json();
             if (result) {
-                // Choose display text: prefer high-level, then literal, then whisper translation, then original
-                const display = result.high_level_translation || result.literal_translation || result.translation_text || result.text;
+                // UI requirement: If the user spoke Tamil, show Tamil in the UI,
+                // but still send English to NLP (already handled server-side).
+                // Detect Tamil via reported language or presence of Tamil script.
+                const isTamil = (result.language === 'ta') || /[\u0B80-\u0BFF]/.test(result.text || '');
+                const display = isTamil
+                    ? (result.text || '')
+                    : (result.high_level_translation || result.literal_translation || result.translation_text || result.text);
                 setRecognizedText(display ? display.trim() : 'No speech detected in the audio.');
                 setNlpResult(result.nlp || null);
                 setCommandText(result.command_text || '');
@@ -148,7 +153,12 @@ const SpeechToText = () => {
                 if (result?.nlp?.intent === 'playback') {
                     const camera = result.nlp?.entities?.camera;
                     if (result.playback_url) {
-                        navigation.navigate('CCTV', { playbackUrl: result.playback_url, camera, alternates: result.playback_alternates || [] });
+                        navigation.navigate('CCTV', {
+                            playbackUrl: result.playback_url,
+                            camera,
+                            alternates: result.playback_alternates || [],
+                            expected: result.playback_expected || null,
+                        });
                     } else {
                         // Fallback: if we have start/end times and maybe assumed today but no URL (older server build)
                         const ents = result?.nlp?.entities || {};
@@ -172,7 +182,7 @@ const SpeechToText = () => {
                             const fallbackUser = 'admin';
                             const fallbackPass = 'password';
                             const guessed = `rtsp://${fallbackUser}:${fallbackPass}@${fallbackHost}:554/Streaming/Channels/${camChannel}?starttime=${startCompact}Z&endtime=${endCompact}Z`;
-                            navigation.navigate('CCTV', { playbackUrl: guessed, camera: cam, alternates: result.playback_alternates || [] });
+                            navigation.navigate('CCTV', { playbackUrl: guessed, camera: cam, alternates: result.playback_alternates || [], expected: null });
                         }
                     }
                 }

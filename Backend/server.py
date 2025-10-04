@@ -4,6 +4,7 @@ import logging
 import json
 import os
 import shutil
+import torch
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
@@ -288,9 +289,9 @@ async def transcribe_audio(
                                     channel_variants.append(base101)
                                     # channel_variants.append(zp)
                                 if str(cam_int) not in channel_variants:  # plain camera number
-                                    # channel_variants.append(str(cam_int))
-                                    channel_variants.append(base101)
-
+                                    # channel_variants.append(str(cam_int)) 
+                                    channel_variants.append(base101)   
+  
                                 # Vendor specific pattern selection
                                 vendor = os.getenv('CCTV_VENDOR', '').lower().strip()
                                 # Normalize times per vendor specification downstream
@@ -489,6 +490,29 @@ async def transcribe_audio(
                                         note = ' (multi-date span)'
                                     playback_debug.append(f"Generated {len(playback_alternates)} candidate URLs; primary pattern={playback_primary_pattern}{note}")
                                     playback_type = 'playback' if 'starttime=' in playback_url.lower() else 'live'
+                                    # Provide expected start/end and duration for client-side auto-stop
+                                    try:
+                                        # Parse start/end components to datetime
+                                        def _parse_hms(t: str):
+                                            t3 = (t+':00:00').split(':')  # ensure at least 3
+                                            hh = int(t3[0]); mm = int(t3[1]); ss = int(t3[2])
+                                            return hh, mm, ss
+                                        sh, sm, ss = _parse_hms(start_t)
+                                        eh, em, es = _parse_hms(end_t)
+                                        start_dt_local = base_day_start.replace(hour=sh, minute=sm, second=ss, microsecond=0)
+                                        end_dt_local = base_day_end.replace(hour=eh, minute=em, second=es, microsecond=0)
+                                        # Guard: if end earlier and no explicit end date, overnight already adjusted above
+                                        duration_ms = int((end_dt_local - start_dt_local).total_seconds() * 1000)
+                                        if duration_ms < 0:
+                                            duration_ms = 0
+                                        playback_expected = {
+                                            'start_local_iso': start_dt_local.isoformat(),
+                                            'end_local_iso': end_dt_local.isoformat(),
+                                            'duration_ms': duration_ms
+                                        }
+                                    except Exception as _dt_err:  # pragma: no cover
+                                        playback_expected = None
+                                        playback_debug.append(f"Failed to compute expected duration: {_dt_err}")
                                 else:
                                     playback_debug.append('No playback_alternates generated after pattern loop')
                                     playback_type = 'unknown'
@@ -543,6 +567,7 @@ async def transcribe_audio(
             "playback_patterns_tried": playback_patterns_tried,
             "playback_debug": playback_debug,
             "playback_type": locals().get('playback_type', None),
+            "playback_expected": locals().get('playback_expected', None),
             "success": True,
         })
             
@@ -581,4 +606,9 @@ if __name__ == "__main__":
     print(f"🌐 Server will attempt to run on: http://{SERVER_HOST}:{SERVER_PORT}")
     print("📱 Use this URL in your React Native app")
     print("⚡ Press Ctrl+C to stop the server")
+  
+    x = torch.rand(10000, 10000).to("cuda")
+    print("Tensor on:", x.device)
+    print("Allocated memory (MB):", torch.cuda.memory_allocated(0) / 1024**2)
+
     uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT, log_level="info")

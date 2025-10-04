@@ -51,9 +51,11 @@ class WhisperSpeechToText:
         logger.info(f"FFmpeg resolved to: {ffmpeg_path if ffmpeg_path else 'NOT FOUND'}")
 
         device, compute_type = self._detect_device_and_precision()
-        logger.info(f"Loading faster-whisper model '{self.model_size}' on {device} ({compute_type})…")
+        logger.info(f"Loading faster-whisper model '{self.model_size}' on {"cuda"} ({"float16"})…")
+        # logger.info(f"Loading faster-whisper model '{self.model_size}' on {device} ({compute_type})…")
         t0 = time.time()
-        self.model = WhisperModel(self.model_size, device=device, compute_type=compute_type)
+        self.model = WhisperModel(self.model_size, device="cuda", compute_type="float16")
+        # self.model = WhisperModel(self.model_size, device=device, compute_type=compute_type)
         logger.info(f"Model loaded in {time.time() - t0:.1f}s")
 
     def _ensure_ffmpeg_in_path(self) -> None:

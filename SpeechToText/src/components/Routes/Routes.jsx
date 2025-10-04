@@ -10,7 +10,7 @@ const Routes = () => {
             
             <Stack.Navigator initialRouteName="SpeechToText">
                 <Stack.Screen name="SpeechToText" component={SpeechToText} options={{ headerShown: false }} />
-                <Stack.Screen name="CCTV" component={cctvView} options={{ headerShown: false }} />
+                <Stack.Screen name="CCTV" component={cctvView} options={{ headerShown: true }} />
                 {/* <Stack.Screen name="Recording" component={RecordingScreen} />
                 <Stack.Screen name="Results" component={ResultsScreen} /> */}
             </Stack.Navigator>
