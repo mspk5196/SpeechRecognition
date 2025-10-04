@@ -51,11 +51,9 @@ class WhisperSpeechToText:
         logger.info(f"FFmpeg resolved to: {ffmpeg_path if ffmpeg_path else 'NOT FOUND'}")
 
         device, compute_type = self._detect_device_and_precision()
-        logger.info(f"Loading faster-whisper model '{self.model_size}' on {"cuda"} ({"float16"})…")
-        # logger.info(f"Loading faster-whisper model '{self.model_size}' on {device} ({compute_type})…")
+        logger.info(f"Loading faster-whisper model '{self.model_size}' on {device} ({compute_type})…")
         t0 = time.time()
-        self.model = WhisperModel(self.model_size, device="cuda", compute_type="float16")
-        # self.model = WhisperModel(self.model_size, device=device, compute_type=compute_type)
+        self.model = WhisperModel(self.model_size, device=device, compute_type=compute_type)
         logger.info(f"Model loaded in {time.time() - t0:.1f}s")
 
     def _ensure_ffmpeg_in_path(self) -> None:
@@ -289,13 +287,47 @@ class WhisperSpeechToText:
             logger.debug(f"Noise reduction skipped due to error: {e}")
         return audio
 
+    def _pick_opus_mt_model(self, src_lang: str) -> str:
+        """Choose a Helsinki-NLP opus-mt MarianMT model for src->en.
+        Default to multilingual-to-English if available, else specific ta->en.
+        """
+        # Broad multilingual to English covers many Indic languages
+        preferred = [
+            "Helsinki-NLP/opus-mt-mul-en",  # multilingual to English
+            "Helsinki-NLP/opus-mt-ta-en",   # Tamil -> English
+            "Helsinki-NLP/opus-mt-hi-en",   # Hindi -> English
+            "Helsinki-NLP/opus-mt-te-en",   # Telugu -> English
+            "Helsinki-NLP/opus-mt-ml-en",   # Malayalam -> English
+            "Helsinki-NLP/opus-mt-bn-en",   # Bengali -> English
+            "Helsinki-NLP/opus-mt-kn-en",   # Kannada -> English
+            "Helsinki-NLP/opus-mt-pa-en",   # Punjabi -> English
+            "Helsinki-NLP/opus-mt-gu-en",   # Gujarati -> English
+            "Helsinki-NLP/opus-mt-ur-en",   # Urdu -> English
+        ]
+        # If we know the specific language code, put its specific model first
+        mapping = {
+            "ta": "Helsinki-NLP/opus-mt-ta-en",
+            "hi": "Helsinki-NLP/opus-mt-hi-en",
+            "te": "Helsinki-NLP/opus-mt-te-en",
+            "ml": "Helsinki-NLP/opus-mt-ml-en",
+            "bn": "Helsinki-NLP/opus-mt-bn-en",
+            "kn": "Helsinki-NLP/opus-mt-kn-en",
+            "pa": "Helsinki-NLP/opus-mt-pa-en",
+            "gu": "Helsinki-NLP/opus-mt-gu-en",
+            "ur": "Helsinki-NLP/opus-mt-ur-en",
+        }
+        if src_lang in mapping:
+            # prioritize specific model, then multilingual
+            return mapping[src_lang]
+        return preferred[0]
+
     def transcribe_audio_file(
         self,
         file_content: bytes,
         filename: str,
         language: str = "auto",
         translate_if_tamil: bool = False,
-        translation_mode: str = "none",  # 'none' | 'literal' | 'high_level'
+        translation_mode: str = "high_level",  # 'none' | 'literal' | 'high_level'
     ) -> dict:
         """
         Transcribes audio content from a byte stream using the loaded Whisper model.
@@ -417,11 +449,11 @@ class WhisperSpeechToText:
                 f"Transcription completed: {len(text)} chars; language={final_language}; segments={segments_count}"
             )
 
-            # Optional translation path: if Tamil (explicit or detected) and user requested
-            is_tamil = (final_language == "ta") or (language_arg == "ta")
-            if translate_if_tamil and is_tamil:
+            # Optional translation path: translate any non-English to English when requested
+            is_non_english = (final_language != "en")
+            if translate_if_tamil and is_non_english:
                 try:
-                    logger.info("Tamil detected (or forced) and translation requested; running English translation task…")
+                    logger.info("Non-English detected and translation requested; running English translation task…")
                     # Reuse decoding path: if we already produced a numpy array, reuse; else read from file
                     translation_source = None
                     if use_ffmpeg and ext != ".wav":
@@ -455,50 +487,43 @@ class WhisperSpeechToText:
                     logger.error(f"Translation failed: {te}")
 
             # Extended translation modes (literal / high_level)
-            # We intentionally lazy-import optional heavy deps so base STT keeps working.
-            if is_tamil and translation_mode in {"literal", "high_level"}:
+            # Replace IndicTrans with Helsinki-NLP opus-mt MarianMT via transformers.
+            # We lazy-load to keep base STT working without extra deps.
+            if (final_language != "en") and translation_mode in {"literal", "high_level"}:
                 try:
-                    # Lazy load external translation model (IndicTrans2) if available
-                    # Users must install: indictrans2, sentencepiece, sacremoses
-                    if 'IndicTransModel' not in globals():
+                    # Load transformers pipeline lazily
+                    if 'pipeline' not in globals():
                         try:
-                            from IndicTrans2.inference.engine import IndicTransModel  # type: ignore
-                            globals()['IndicTransModel'] = IndicTransModel
-                        except Exception as imp_err:
+                            from transformers import pipeline  # type: ignore
+                            globals()['pipeline'] = pipeline
+                        except Exception as t_imp:
                             logger.warning(
-                                "IndicTrans2 not installed; literal/high_level translation skipped. "
-                                "Install with: pip install indictrans2 sentencepiece sacremoses"
+                                "transformers not installed; literal/high_level translation skipped. "
+                                "Install with: pip install transformers sentencepiece"
                             )
-                            IndicTransModel = None  # type: ignore
-                    IndicModelClass = globals().get('IndicTransModel')
-                    if IndicModelClass:
-                        if not hasattr(self, '_indic_mt'):
-                            device = 'cuda' if (torch is not None and torch.cuda.is_available()) else 'cpu'
-                            # Use generic multi pair model; users can swap via config
+                            pipeline = None  # type: ignore
+                    hf_pipeline = globals().get('pipeline')
+                    if hf_pipeline:
+                        # Pick a MarianMT model for TA->EN (prefer opus-mt-mul-en for broader coverage)
+                        model_name = self._pick_opus_mt_model(final_language)
+                        if not hasattr(self, '_mt_pipe') or getattr(self, '_mt_model_name', None) != model_name:
                             try:
-                                self._indic_mt = IndicModelClass(
-                                    model_name_or_path="ai4bharat/indictrans2-en-ta-all-gpu",
-                                    device=device,
-                                )
-                            except Exception:
-                                # Fallback to CPU model naming if GPU fails
-                                try:
-                                    self._indic_mt = IndicModelClass(
-                                        model_name_or_path="ai4bharat/indictrans2-en-ta-all-cpu",
-                                        device=device,
-                                    )
-                                except Exception as model_err:
-                                    logger.warning(f"Failed loading IndicTrans2 model: {model_err}")
-                        if hasattr(self, '_indic_mt'):
+                                self._mt_pipe = hf_pipeline('translation', model=model_name)
+                                self._mt_model_name = model_name
+                            except Exception as mt_err:
+                                logger.warning(f"Failed to load MarianMT model {model_name}: {mt_err}",)
+                                self._mt_pipe = None
+                        if getattr(self, '_mt_pipe', None):
                             try:
-                                literal_translation = self._indic_mt.translate_sentence(  # type: ignore
-                                    text.strip(), src_lang="ta", tgt_lang="en"
-                                )
+                                lt = self._mt_pipe(text, max_length=1024)
+                                if isinstance(lt, list) and lt and 'translation_text' in lt[0]:
+                                    literal_translation = lt[0]['translation_text']
+                                elif isinstance(lt, str):
+                                    literal_translation = lt
                             except Exception as tr_err:
-                                logger.warning(f"IndicTrans2 translation error: {tr_err}")
-                    # High-level summarization / abstraction
+                                logger.warning(f"MarianMT translation error: {tr_err}")
+                    # High-level summarization
                     if translation_mode == 'high_level':
-                        # Provide a heuristic summarization using transformers summarization pipeline if available
                         if 'pipeline' not in globals():
                             try:
                                 from transformers import pipeline  # type: ignore
@@ -513,29 +538,19 @@ class WhisperSpeechToText:
                         if hf_pipeline:
                             try:
                                 if not hasattr(self, '_summary_pipe'):
-                                    # Use a lightweight multilingual summarization-capable model
-                                    # (Users may replace with a better fine-tuned model)
-                                    self._summary_pipe = hf_pipeline(
-                                        'summarization',
-                                        model='facebook/bart-large-cnn'
-                                    )
-                                # Choose source: prefer literal English if available else whisper translation
-                                source_for_summary = literal_translation or translation_text or text
-                                # Truncate excessively long input for summarization model
-                                if len(source_for_summary) > 4000:
-                                    source_for_summary = source_for_summary[:4000]
-                                summary_chunks = self._summary_pipe(
-                                    source_for_summary,
-                                    max_length=180,
-                                    min_length=40,
-                                    do_sample=False,
-                                )
+                                    self._summary_pipe = hf_pipeline('summarization', model='facebook/bart-large-cnn')
+                                src = (literal_translation or translation_text or text)[:4000]
+                                summary_chunks = self._summary_pipe(src, max_length=180, min_length=40, do_sample=False)
                                 if summary_chunks and isinstance(summary_chunks, list):
                                     high_level_translation = summary_chunks[0].get('summary_text', '')
                             except Exception as sum_err:
                                 logger.warning(f"High-level summarization failed: {sum_err}")
                 except Exception as outer_tr_err:
                     logger.warning(f"Extended translation pipeline error: {outer_tr_err}")
+
+            # Choose English text for NLP downstream while keeping original for UI
+            nlp_text = (translation_text.strip() if (final_language != 'en' and translation_text.strip()) else text.strip())
+            nlp_language = 'en' if final_language != 'en' else 'en'
 
             return {
                 "text": text.strip(),
@@ -547,6 +562,8 @@ class WhisperSpeechToText:
                 "literal_translation": literal_translation.strip(),
                 "high_level_translation": high_level_translation.strip(),
                 "translation_mode": translation_mode,
+                "nlp_text": nlp_text,
+                "nlp_language": nlp_language,
             }
             
         except Exception as e:

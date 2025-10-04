@@ -23,7 +23,7 @@ const SpeechToText = () => {
 
     const languages = [
         { label: 'English', code: 'en' },
-        // { label: 'Hindi', code: 'hi' },
+        { label: 'Hindi', code: 'hi' },
         { label: 'Tamil', code: 'ta' },
         // { label: 'French', code: 'fr' },
         // { label: 'German', code: 'de' },
@@ -139,11 +139,11 @@ const SpeechToText = () => {
 
             const result = await response.json();
             if (result) {
-                // UI requirement: If the user spoke Tamil, show Tamil in the UI,
-                // but still send English to NLP (already handled server-side).
-                // Detect Tamil via reported language or presence of Tamil script.
-                const isTamil = (result.language === 'ta') || /[\u0B80-\u0BFF]/.test(result.text || '');
-                const display = isTamil
+                // UI requirement: show text in the spoken language for user display;
+                // backend provides English (nlp_text) for NLP.
+                const lang = (result.language || '').toLowerCase();
+                const isNonEnglish = lang && !lang.startsWith('en');
+                const display = isNonEnglish
                     ? (result.text || '')
                     : (result.high_level_translation || result.literal_translation || result.translation_text || result.text);
                 setRecognizedText(display ? display.trim() : 'No speech detected in the audio.');

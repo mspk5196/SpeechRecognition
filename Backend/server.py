@@ -185,17 +185,19 @@ async def transcribe_audio(
             translation_mode=translation_mode,
         )
 
-        # Determine best English candidate for NLP
-        english_candidate = (
-            transcription_result.get("high_level_translation")
-            or transcription_result.get("literal_translation")
-            or transcription_result.get("translation_text")
-        )
-        # Fallback: if none of the English transformation fields are present and original is already English
+        # Prefer explicitly supplied NLP text (English) from STT service
+        english_candidate = transcription_result.get("nlp_text")
         if not english_candidate:
-            lang_code = (transcription_result.get("language") or "").lower()
-            if lang_code.startswith("en"):
-                english_candidate = transcription_result.get("text")
+            # Backward-compatible fallback selection
+            english_candidate = (
+                transcription_result.get("high_level_translation")
+                or transcription_result.get("literal_translation")
+                or transcription_result.get("translation_text")
+            )
+            if not english_candidate:
+                lang_code = (transcription_result.get("language") or "").lower()
+                if lang_code.startswith("en"):
+                    english_candidate = transcription_result.get("text")
         nlp_payload = None
         command_text = None
         playback_url = None
