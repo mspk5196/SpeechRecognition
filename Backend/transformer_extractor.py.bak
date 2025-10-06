@@ -1,4 +1,7 @@
-"""Transformer-based sequence-to-sequence entity extractor.
+"""Transformer-based seque# Use the smallest model for faster inference and less memory
+DEFAULT_MODEL = os.getenv("TRANSFORMER_MODEL", "t5-small") 
+MAX_NEW_TOKENS = int(os.getenv("TRANSFORMER_MAX_NEW_TOKENS", "128"))
+DEVICE = os.getenv("TRANSFORMER_DEVICE", "cuda")  # Default to CUDA if available-to-sequence entity extractor.
 
 Goal: Convert a natural language playback / camera command into structured
 JSON containing entities (date, date_range_start, date_range_end,
@@ -18,9 +21,7 @@ set of few-shot exemplars.
 from __future__ import annotations
 import os
 import json
-import re
 from typing import Dict, Any
-from datetime import date, timedelta
 
 # Lazy imports so that environments not using transformer backend don't pay cost
 _model = None
@@ -28,7 +29,7 @@ _tokenizer = None
 
 DEFAULT_MODEL = os.getenv("TRANSFORMER_MODEL", "t5-large")
 MAX_NEW_TOKENS = int(os.getenv("TRANSFORMER_MAX_NEW_TOKENS", "128"))
-DEVICE = os.getenv("TRANSFORMER_DEVICE", "cuda")  # Force CUDA if available
+DEVICE = os.getenv("TRANSFORMER_DEVICE", "cuda")  # Default to CUDA if available
 
 INSTRUCTION = (
     "Extract CCTV playback / PTZ entities as compact JSON keys. Allowed keys: "
@@ -50,6 +51,8 @@ EXAMPLES = [
     ("playback from 8 to 8-1 in the morning", '{"intent":"playback","date":"{TODAY}","date_range_start":"{TODAY}","date_range_end":"{TODAY}","start_time":"08:00","end_time":"08:01","part_of_day":"morning"}'),
     ("show camera 1 from 8 to 8-01", '{"intent":"playback","camera":"1","date":"{TODAY}","date_range_start":"{TODAY}","date_range_end":"{TODAY}","start_time":"08:00","end_time":"08:01"}')
 ]
+
+from datetime import date, timedelta
 
 def _resolve_relatives(example_json: str) -> str:
     today = date.today()
@@ -79,7 +82,7 @@ def load_model():  # pragma: no cover (heavy)
     if _model is not None:
         return _model, _tokenizer
     
-    # Determine best device - force CUDA usage
+    # Determine best device
     actual_device = DEVICE
     try:
         import torch
@@ -88,10 +91,6 @@ def load_model():  # pragma: no cover (heavy)
             actual_device = 'cpu'
         elif DEVICE == 'cuda':
             print(f"[transformer_extractor] Using CUDA device: {torch.cuda.get_device_name(0)}")
-            # Configure PyTorch for optimized memory usage
-            torch.backends.cudnn.benchmark = True  # Speed up training/inference for fixed input sizes
-            if hasattr(torch.cuda, 'amp') and os.getenv('USE_AMP', 'true').lower() in ('true', '1', 'yes'):
-                print("[transformer_extractor] Automatic Mixed Precision (AMP) enabled for memory optimization")
     except ImportError:
         print("[transformer_extractor] PyTorch not available, using CPU")
         actual_device = 'cpu'
@@ -100,20 +99,9 @@ def load_model():  # pragma: no cover (heavy)
         from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
         print(f"[transformer_extractor] Loading {DEFAULT_MODEL} on {actual_device}...")
         _tokenizer = AutoTokenizer.from_pretrained(DEFAULT_MODEL)
-        
-        # Configure memory-efficient loading
-        model_kwargs = {
-            "device_map": actual_device if actual_device == 'cpu' else "auto",
-            "low_cpu_mem_usage": True
-        }
-        
-        # Apply gradient checkpointing for larger models to save VRAM
-        _model = AutoModelForSeq2SeqLM.from_pretrained(DEFAULT_MODEL, **model_kwargs)
-        
+        _model = AutoModelForSeq2SeqLM.from_pretrained(DEFAULT_MODEL)
         if actual_device != 'cpu':
-            if hasattr(_model, "enable_gradient_checkpointing"):
-                _model.enable_gradient_checkpointing()
-                print("[transformer_extractor] Gradient checkpointing enabled for memory efficiency")
+            _model = _model.to(actual_device)
             print("[transformer_extractor] Model loaded on GPU")
         else:
             print("[transformer_extractor] Model loaded on CPU")
@@ -124,21 +112,15 @@ def load_model():  # pragma: no cover (heavy)
     return _model, _tokenizer
 
 
+import re
+
 def extract_time_with_regex(text: str) -> Dict[str, Any]:
-    """Extract time entities using regex patterns, particularly for hyphenated times.
-    This works better for Tamil texts where the transformer model might struggle.
-    """
+    """Extract time entities using regex patterns, particularly for hyphenated times."""
     result = {}
     
-    # Match patterns like "8 to 8-1" or "8 to 8-01" or "8 to 8:01"
-    # Also handle Tamil words: மணிலிருந்து (from) and வரைக்கு(ம்) (to/until)
-    time_pattern = r'(\d{1,2})(?:\s+(?:to|until|from|மணிலிருந்து)\s+)(\d{1,2})(?:[:-](\d{1,2}))'
+    # Match patterns like "8 to 8-1" or "8 to 8-01" or "8 to 8:01" 
+    time_pattern = r'(\d{1,2})(?:\s+(?:to|until|from)\s+)(\d{1,2})(?:[:-](\d{1,2}))'
     match = re.search(time_pattern, text)
-    
-    # More generic pattern for Tamil time ranges
-    if not match:
-        time_pattern = r'(\d{1,2})(?:\s*(?:மணி(?:லிருந்து)?)\s*)(\d{1,2})(?:[:-](\d{1,2}))'
-        match = re.search(time_pattern, text)
     
     if match:
         start_hour = int(match.group(1))
@@ -155,11 +137,11 @@ def extract_time_with_regex(text: str) -> Dict[str, Any]:
         result["start_time"] = f"{start_hour:02d}:00"
         result["end_time"] = f"{end_hour:02d}:{end_minute:02d}"
         
-        # Try to detect intent - include Tamil words for playback
-        if any(word in text.lower() for word in ["playback", "play", "show", "display", "camera", "ப்ளேய்பேக்", "கொடு", "போடு"]):
+        # Try to detect intent
+        if any(word in text.lower() for word in ["playback", "play", "show", "display", "camera"]):
             result["intent"] = "playback"
             
-        # Try to detect part of day - include Tamil words for morning
+        # Try to detect part of day
         if any(word in text.lower() for word in ["morning", "காலை"]):
             result["part_of_day"] = "morning"
             
@@ -170,7 +152,6 @@ def extract_time_with_regex(text: str) -> Dict[str, Any]:
         result["date_range_end"] = today.isoformat()
     
     return result
-
 
 def extract_with_transformer(text: str) -> Dict[str, Any]:
     # First try with regex for hyphenated time formats
@@ -198,29 +179,7 @@ def extract_with_transformer(text: str) -> Dict[str, Any]:
             encoded = {k: v.to(DEVICE) for k,v in encoded.items()}
             
         print(f"Generating with max_new_tokens={MAX_NEW_TOKENS}...")
-        
-        # Use memory-efficient generation settings
-        try:
-            import torch
-            with torch.no_grad():
-                if torch.cuda.is_available() and hasattr(torch.cuda, 'amp') and os.getenv('USE_AMP', 'true').lower() in ('true', '1', 'yes'):
-                    with torch.cuda.amp.autocast():
-                        output_ids = model.generate(
-                            **encoded, 
-                            max_new_tokens=MAX_NEW_TOKENS, 
-                            do_sample=False,
-                            use_cache=True
-                        )
-                else:
-                    output_ids = model.generate(
-                        **encoded, 
-                        max_new_tokens=MAX_NEW_TOKENS, 
-                        do_sample=False,
-                        use_cache=True
-                    )
-        except ImportError:
-            # Fallback if torch import fails
-            output_ids = model.generate(**encoded, max_new_tokens=MAX_NEW_TOKENS, do_sample=False)
+        output_ids = model.generate(**encoded, max_new_tokens=MAX_NEW_TOKENS, do_sample=False)
         decoded = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
         print(f"Raw model output: '{decoded}'")
         
@@ -273,8 +232,7 @@ def extract_with_transformer(text: str) -> Dict[str, Any]:
         except Exception as e:
             print(f"JSON parsing error: {e}")
             # Fall back to regex if model fails
-            if not regex_result:
-                regex_result = extract_time_with_regex(text)
+            regex_result = extract_time_with_regex(text)
             if regex_result:
                 print(f"Falling back to regex result: {regex_result}")
                 return regex_result
@@ -282,15 +240,53 @@ def extract_with_transformer(text: str) -> Dict[str, Any]:
     except Exception as gen_err:  # pragma: no cover
         print(f"[transformer_extractor] generation error: {gen_err}")
         # Fall back to regex if model fails
-        if not regex_result:
-            regex_result = extract_time_with_regex(text)
+        regex_result = extract_time_with_regex(text)
         if regex_result:
             print(f"Falling back to regex result after error: {regex_result}")
             return regex_result
         return {}
-    
     return {}
-
+        try:
+            data = json.loads(candidate)
+            # Basic post processing: coerce camera & times format if present
+            if isinstance(data, dict):
+                # Normalize times to HH:MM format
+                for tkey in ['start_time','end_time']:
+                    if tkey in data and isinstance(data[tkey], str):
+                        time_str = data[tkey]
+                        
+                        # Handle HH:MM:SS format
+                        parts = time_str.split(':')
+                        if len(parts) >= 2:
+                            data[tkey] = f"{parts[0].zfill(2)}:{parts[1].zfill(2)}"
+                            continue
+                            
+                        # Handle H-M format (like "8-1" meaning "08:01")
+                        if '-' in time_str and not ':' in time_str:
+                            hour_min = time_str.split('-')
+                            if len(hour_min) == 2:
+                                try:
+                                    hour = int(hour_min[0].strip())
+                                    minute = int(hour_min[1].strip())
+                                    # Only apply when minute part is small (likely just minutes, not another hour)
+                                    if minute < 60:
+                                        data[tkey] = f"{hour:02d}:{minute:02d}"
+                                        continue
+                                except ValueError:
+                                    pass
+                if 'camera' in data and isinstance(data['camera'], (int,str)):
+                    try:
+                        cam_int = int(str(data['camera']).strip())
+                        data['camera'] = str(cam_int)
+                    except Exception:
+                        pass
+                return data
+        except Exception:
+            return {}
+    except Exception as gen_err:  # pragma: no cover
+        print(f"[transformer_extractor] generation error: {gen_err}")
+        return {}
+    return {}
 
 if __name__ == "__main__":  # manual test
     print(extract_with_transformer("playback camera 4 yesterday from 11 pm to today 1 am"))

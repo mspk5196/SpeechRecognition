@@ -1325,3 +1325,29 @@ Vanakam Mala Yudhumurai,playback,pred_score=0.7673
 See you in the next video.,playback,location=the;pred_score=0.5644
 Good morning from 10.01 am to 10.02 am,playback,part_of_day=morning;start_time=10:01;end_time=10:02;pred_score=0.9277
 10am to 12pm,playback,start_time=10:00;end_time=12:00;pred_score=0.8386
+Call it up with money,playback,direction=up;pred_score=0.6888
+Morning 10 a.m.,playback,part_of_day=morning;start_time=10:00;end_time=11:00;fallback_strategy=plus1h;pred_score=0.8858
+I click the bike,playback,pred_score=0.7274
+I wish you all the best.,playback,pred_score=0.7663
+10 in the morning,playback,location=the;pred_score=0.6895;part_of_day=morning;start_time=10:00;end_time=11:00;fallback_strategy=plus1h
+10 in the morning,playback,location=the;pred_score=0.6895;part_of_day=morning;start_time=10:00;end_time=11:00;fallback_strategy=plus1h
+10am in the morning,playback,part_of_day=morning;location=the;start_time=10:00;end_time=11:00;fallback_strategy=plus1h;pred_score=0.6742
+College is very good,playback,pred_score=0.7270
+10 AM,playback,start_time=09:00;end_time=10:00;pred_score=0.8928;location=the
+10 in the morning,playback,location=the;pred_score=0.6895;part_of_day=morning;start_time=10:00;end_time=11:00;fallback_strategy=plus1h
+10 in the morning,playback,location=the;pred_score=0.6895;part_of_day=morning;start_time=10:00;end_time=11:00;fallback_strategy=plus1h
+Playback in the morning from 8 am to 10 am,playback,part_of_day=morning;start_time=08:00;end_time=10:00;location=the;pred_score=0.8725
+Play back from 8 am to 10 am,playback,start_time=08:00;end_time=10:00;pred_score=0.9031
+Playback from 8am to 8.30am,playback,start_time=08:00;end_time=08:30;pred_score=0.9747
+Payback from 10am to 10.30am,playback,start_time=10:00;end_time=10:30;pred_score=0.9011
+Playback from 10 am to 10.01 am,playback,start_time=10:00;end_time=10:01;pred_score=0.9308
+In the morning from 8 am to 8.30 am  I used to write in the paper.,playback,part_of_day=morning;start_time=08:00;end_time=08:30;location=the;pred_score=0.7644
+Playback from 10am to 10.30am,playback,start_time=10:00;end_time=10:30;pred_score=0.9322
+Playback from 8 am to 8.30 am,playback,start_time=08:00;end_time=08:30;pred_score=0.9095
+Playback from 8am to 8.30am,playback,start_time=08:00;end_time=08:30;pred_score=0.9747
+8.00 AM to 8.01 AM,playback,start_time=08:00;end_time=08:01;pred_score=0.9140
+Play back from 8am to 8.30am,playback,start_time=08:00;end_time=08:30;pred_score=0.8626
+Playback starts from 8 am to 10 am,playback,start_time=08:00;end_time=10:00;pred_score=0.9321
+From 8 am to 10 pm  camera playback is done.,playback,start_time=08:00;end_time=22:00;pred_score=0.8358
+Playback from 8am to 8.30am,playback,start_time=08:00;end_time=08:30;pred_score=0.9747
+From 8am to 8.30am with playback,playback,start_time=08:00;end_time=08:30;pred_score=0.9069

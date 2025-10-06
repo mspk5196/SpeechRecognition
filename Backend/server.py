@@ -4,7 +4,11 @@ import logging
 import json
 import os
 import shutil
-import torch
+try:
+    import torch  # type: ignore
+except Exception as _torch_err:  # torch is optional; GPU features may be disabled
+    torch = None  # type: ignore
+    logging.warning(f"PyTorch not available: {_torch_err}. Running in CPU-only mode.")
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
@@ -43,6 +47,14 @@ load_dotenv()
 MODEL_SIZE = os.getenv("WHISPER_MODEL", "large-v3")
 SERVER_HOST = os.getenv("WHISPER_HOST", "10.150.249.75")
 SERVER_PORT = int(os.getenv("WHISPER_PORT", "8000"))
+# Additional model settings from environment variables
+USE_AMP = os.getenv("USE_AMP", "true").lower() in ("true", "1", "yes")
+OPUS_MT_MODEL = os.getenv("OPUS_MT_MODEL", "Helsinki-NLP/opus-mt-mul-en")
+# Video player settings
+AUTO_STOP_PLAYBACK = os.getenv("AUTO_STOP_PLAYBACK", "true").lower() in ("true", "1", "yes")
+VIDEO_PLAYER_CONTROLS = os.getenv("VIDEO_PLAYER_CONTROLS", "true").lower() in ("true", "1", "yes")
+VIDEO_PLAYER_PROGRESS_BAR = os.getenv("VIDEO_PLAYER_PROGRESS_BAR", "true").lower() in ("true", "1", "yes")
+VIDEO_PLAYER_LOADING_INDICATOR = os.getenv("VIDEO_PLAYER_LOADING_INDICATOR", "true").lower() in ("true", "1", "yes")
 
 # On Windows, winget often places shims at %LOCALAPPDATA%\Microsoft\WinGet\Links.
 # Ensure ffmpeg is discoverable before loading Whisper to avoid WinError 2.
@@ -155,7 +167,7 @@ async def transcribe_audio(
     file: UploadFile = File(..., description="Audio file to transcribe (e.g., WAV, MP3, M4A)."),
     language: str = Form("auto", description="Language hint for transcription (e.g., 'en', 'ta', or 'auto' for detection). Use 'ta' for Tamil when known."),
     translate_if_tamil: bool = Form(False, description="If true and the detected/forced language is Tamil ('ta'), also return an English translation using Whisper's translate task."),
-    translation_mode: str = Form("none", description="Extended translation mode: none | literal | high_level. literal uses IndicTrans2 if installed; high_level adds summarization."),
+    translation_mode: str = Form("high_level", description="Extended translation mode: none | literal | high_level. literal uses MarianMT (Helsinki-NLP) if installed; high_level adds summarization."),
     run_nlp: bool = Form(True, description="Run local NLP intent/entity extraction on English text (translation/summary if available)."),
 ):
     """
@@ -211,6 +223,45 @@ async def transcribe_audio(
                 if nlp_payload:
                     intent = nlp_payload.get('intent')
                     entities = nlp_payload.get('entities') or {}
+                    # Heuristic: For Tamil input, if the original text suggests a one-minute range,
+                    # but the extracted end_time appears as 30 minutes, correct it to +1 minute.
+                    try:
+                        orig_lang = (transcription_result.get('language') or '').lower()
+                        orig_text = transcription_result.get('text') or ''
+                        if orig_lang == 'ta' and isinstance(entities, dict):
+                            ta_one_markers = [
+                                'ஒன்னு',
+                                'ஒரு நிமிடம்', 'ஒரு நிமிட',
+                                '1 நிமிடம்', '1நிமிடம்'
+                            ]
+                            if any(m in orig_text for m in ta_one_markers):
+                                st = entities.get('start_time')
+                                et = entities.get('end_time')
+                                def _parse_hm(t: str):
+                                    hh, mm, *_ = (t+':0').split(':')
+                                    return int(hh), int(mm)
+                                def _add_one_min(t: str) -> str:
+                                    try:
+                                        h, m = _parse_hm(t)
+                                        m += 1
+                                        if m >= 60:
+                                            m = 0; h = (h + 1) % 24
+                                        return f"{h:02d}:{m:02d}"
+                                    except Exception:
+                                        return t
+                                if st and et:
+                                    try:
+                                        sh, sm = _parse_hm(st)
+                                        eh, em = _parse_hm(et)
+                                        # Common misread: 10:00 -> 10:30 for "one minute" in Tamil around 10
+                                        if sh == eh and sm in (0, 00) and em == 30:
+                                            new_et = _add_one_min(st)
+                                            entities['end_time'] = new_et
+                                            playback_debug.append(f"Adjusted TA one-minute end_time: {et} -> {new_et}")
+                                    except Exception:
+                                        pass
+                    except Exception:
+                        pass
                     if intent == 'playback':
                         start_t = entities.get('start_time') or entities.get('from') or 'unknown'
                         end_t = entities.get('end_time') or entities.get('to') or 'unknown'
@@ -584,6 +635,16 @@ async def transcribe_audio(
             }
         )
 
+@app.get("/config/player")
+async def get_player_config():
+    """Returns configuration settings for the video player."""
+    return {
+        "auto_stop_playback": AUTO_STOP_PLAYBACK,
+        "player_controls": VIDEO_PLAYER_CONTROLS,
+        "progress_bar": VIDEO_PLAYER_PROGRESS_BAR,
+        "loading_indicator": VIDEO_PLAYER_LOADING_INDICATOR
+    }
+
 @app.get("/models")
 async def list_models():
     """Returns information about the currently loaded model and available options."""
@@ -608,9 +669,15 @@ if __name__ == "__main__":
     print(f"🌐 Server will attempt to run on: http://{SERVER_HOST}:{SERVER_PORT}")
     print("📱 Use this URL in your React Native app")
     print("⚡ Press Ctrl+C to stop the server")
-  
-    x = torch.rand(10000, 10000).to("cuda")
-    print("Tensor on:", x.device)
-    print("Allocated memory (MB):", torch.cuda.memory_allocated(0) / 1024**2)
+    # Optional GPU info without allocating massive tensors
+    try:
+        if torch is not None and hasattr(torch, 'cuda') and torch.cuda.is_available():
+            print("CUDA available:", True)
+            device_name = torch.cuda.get_device_name(0)
+            print("GPU:", device_name)
+        else:
+            print("CUDA available:", False)
+    except Exception as _gpu_info_err:
+        print("GPU info check skipped:", _gpu_info_err)
 
     uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT, log_level="info")

@@ -222,27 +222,34 @@ class WhisperSpeechToText:
             )
 
     def _detect_device_and_precision(self) -> Tuple[str, str]:
-        """Detect whether to use CUDA GPU or CPU and select a suitable compute type.
+        """Always use CUDA GPU if available, with no CPU fallback.
         Returns (device, compute_type).
         """
-        # Forced CPU override for troubleshooting
+        # Get AMP settings from server environment
+        use_amp = os.environ.get("USE_AMP", "true").lower() in ("true", "1", "yes")
+        compute_type = "float16" if use_amp else "float32"
+        
+        # Forced CPU override for troubleshooting (kept for debugging purposes)
         if os.environ.get("FWH_FORCE_CPU"):
-            return "cpu", "int8"
+            logger.warning("FWH_FORCE_CPU is set but system is configured to always use GPU. Ignoring override.")
 
-        # Prefer CUDA if available
+        # Check if CUDA is available through PyTorch
         try:
             if torch is not None and hasattr(torch, "cuda") and torch.cuda.is_available():
-                return "cuda", "float16"
-        except Exception:
-            pass
+                logger.info(f"CUDA available through PyTorch. Using GPU with {compute_type} precision.")
+                return "cuda", compute_type
+        except Exception as e:
+            logger.warning(f"Error checking CUDA via PyTorch: {e}")
 
-        # Fallback: detect presence of NVIDIA driver
+        # Alternative: Check for NVIDIA driver presence
         if shutil.which("nvidia-smi"):
-            # Assume CUDA runtime is available
-            return "cuda", "float16"
-
-        # CPU fallback: use int8 for speed/accuracy balance
-        return "cpu", "int8"
+            logger.info(f"NVIDIA driver detected. Assuming CUDA is available and using GPU with {compute_type} precision.")
+            return "cuda", compute_type
+            
+        # If we get here, we couldn't confirm GPU availability
+        # but we'll still try to use CUDA as requested
+        logger.warning(f"Could not confirm GPU availability, but forcing CUDA usage as requested with {compute_type} precision. May fail if GPU is not present.")
+        return "cuda", compute_type
 
     def _decode_wav_to_16k_mono(self, content: bytes) -> np.ndarray:
         with wave.open(io.BytesIO(content), 'rb') as wf:
@@ -288,38 +295,15 @@ class WhisperSpeechToText:
         return audio
 
     def _pick_opus_mt_model(self, src_lang: str) -> str:
-        """Choose a Helsinki-NLP opus-mt MarianMT model for src->en.
-        Default to multilingual-to-English if available, else specific ta->en.
+        """Returns the Helsinki-NLP opus-mt MarianMT multilingual model.
+        We exclusively use the multilingual model (opus-mt-mul-en) for all translations
+        to ensure consistent results and avoid language-specific model issues.
+        This model handles multiple source languages to English translation.
         """
-        # Broad multilingual to English covers many Indic languages
-        preferred = [
-            "Helsinki-NLP/opus-mt-mul-en",  # multilingual to English
-            "Helsinki-NLP/opus-mt-ta-en",   # Tamil -> English
-            "Helsinki-NLP/opus-mt-hi-en",   # Hindi -> English
-            "Helsinki-NLP/opus-mt-te-en",   # Telugu -> English
-            "Helsinki-NLP/opus-mt-ml-en",   # Malayalam -> English
-            "Helsinki-NLP/opus-mt-bn-en",   # Bengali -> English
-            "Helsinki-NLP/opus-mt-kn-en",   # Kannada -> English
-            "Helsinki-NLP/opus-mt-pa-en",   # Punjabi -> English
-            "Helsinki-NLP/opus-mt-gu-en",   # Gujarati -> English
-            "Helsinki-NLP/opus-mt-ur-en",   # Urdu -> English
-        ]
-        # If we know the specific language code, put its specific model first
-        mapping = {
-            "ta": "Helsinki-NLP/opus-mt-ta-en",
-            "hi": "Helsinki-NLP/opus-mt-hi-en",
-            "te": "Helsinki-NLP/opus-mt-te-en",
-            "ml": "Helsinki-NLP/opus-mt-ml-en",
-            "bn": "Helsinki-NLP/opus-mt-bn-en",
-            "kn": "Helsinki-NLP/opus-mt-kn-en",
-            "pa": "Helsinki-NLP/opus-mt-pa-en",
-            "gu": "Helsinki-NLP/opus-mt-gu-en",
-            "ur": "Helsinki-NLP/opus-mt-ur-en",
-        }
-        if src_lang in mapping:
-            # prioritize specific model, then multilingual
-            return mapping[src_lang]
-        return preferred[0]
+        # Get model from environment variable or use the default multilingual model
+        model_name = os.getenv("OPUS_MT_MODEL", "Helsinki-NLP/opus-mt-mul-en")
+        logger.info(f"Using {model_name} for {src_lang} to English translation")
+        return model_name
 
     def transcribe_audio_file(
         self,
@@ -327,7 +311,7 @@ class WhisperSpeechToText:
         filename: str,
         language: str = "auto",
         translate_if_tamil: bool = False,
-        translation_mode: str = "high_level",  # 'none' | 'literal' | 'high_level'
+        translation_mode: str = "none",  # 'none' | 'literal' | 'high_level'
     ) -> dict:
         """
         Transcribes audio content from a byte stream using the loaded Whisper model.
@@ -487,8 +471,7 @@ class WhisperSpeechToText:
                     logger.error(f"Translation failed: {te}")
 
             # Extended translation modes (literal / high_level)
-            # Replace IndicTrans with Helsinki-NLP opus-mt MarianMT via transformers.
-            # We lazy-load to keep base STT working without extra deps.
+            # Always use Helsinki-NLP opus-mt MarianMT model for translations
             if (final_language != "en") and translation_mode in {"literal", "high_level"}:
                 try:
                     # Load transformers pipeline lazily
@@ -496,55 +479,96 @@ class WhisperSpeechToText:
                         try:
                             from transformers import pipeline  # type: ignore
                             globals()['pipeline'] = pipeline
+                            logger.info("Transformers pipeline imported successfully for translation")
                         except Exception as t_imp:
-                            logger.warning(
-                                "transformers not installed; literal/high_level translation skipped. "
+                            logger.error(
+                                f"Transformers not installed; translation will fail: {t_imp}. "
                                 "Install with: pip install transformers sentencepiece"
                             )
                             pipeline = None  # type: ignore
+                    
                     hf_pipeline = globals().get('pipeline')
                     if hf_pipeline:
-                        # Pick a MarianMT model for TA->EN (prefer opus-mt-mul-en for broader coverage)
-                        model_name = self._pick_opus_mt_model(final_language)
-                        if not hasattr(self, '_mt_pipe') or getattr(self, '_mt_model_name', None) != model_name:
+                        # Exclusively use Helsinki-NLP opus-mt MarianMT model
+                        helsinki_model = "Helsinki-NLP/opus-mt-mul-en"
+                        logger.info(f"Using MarianMT model for translation: {helsinki_model}")
+                        
+                        # Load the Helsinki model if not already loaded
+                        if not hasattr(self, '_mt_pipe') or getattr(self, '_mt_model_name', None) != helsinki_model:
                             try:
-                                self._mt_pipe = hf_pipeline('translation', model=model_name)
-                                self._mt_model_name = model_name
+                                logger.info(f"Loading Helsinki-NLP MarianMT model: {helsinki_model}")
+                                self._mt_pipe = hf_pipeline('translation', model=helsinki_model)
+                                self._mt_model_name = helsinki_model
+                                logger.info(f"Successfully loaded MarianMT model: {helsinki_model}")
                             except Exception as mt_err:
-                                logger.warning(f"Failed to load MarianMT model {model_name}: {mt_err}",)
+                                logger.error(f"Failed to load Helsinki-NLP MarianMT model: {mt_err}")
                                 self._mt_pipe = None
-                        if getattr(self, '_mt_pipe', None):
+                        
+                        # Perform translation with the Helsinki model
+                        if hasattr(self, '_mt_pipe') and self._mt_pipe:
                             try:
+                                logger.info(f"Performing translation with Helsinki-NLP model for text: {text[:50]}...")
                                 lt = self._mt_pipe(text, max_length=1024)
                                 if isinstance(lt, list) and lt and 'translation_text' in lt[0]:
                                     literal_translation = lt[0]['translation_text']
+                                    logger.info(f"Translation successful: {literal_translation[:50]}...")
                                 elif isinstance(lt, str):
                                     literal_translation = lt
+                                    logger.info(f"Translation successful: {literal_translation[:50]}...")
+                                else:
+                                    logger.error(f"Unexpected translation output format: {type(lt)}")
                             except Exception as tr_err:
-                                logger.warning(f"MarianMT translation error: {tr_err}")
-                    # High-level summarization
-                    if translation_mode == 'high_level':
+                                logger.error(f"Helsinki-NLP MarianMT translation failed: {tr_err}")
+                    # High-level summarization - always use Helsinki-NLP model output as basis
+                    if translation_mode == 'high_level' and literal_translation:
                         if 'pipeline' not in globals():
                             try:
                                 from transformers import pipeline  # type: ignore
                                 globals()['pipeline'] = pipeline
+                                logger.info("Transformers pipeline imported successfully for high-level summarization")
                             except Exception as t_imp:
-                                logger.warning(
-                                    "transformers not installed; high-level summarization skipped. "
+                                logger.error(
+                                    f"Transformers not installed; high-level summarization will fail: {t_imp}. "
                                     "Install with: pip install transformers sentencepiece"
                                 )
                                 pipeline = None  # type: ignore
+                        
                         hf_pipeline = globals().get('pipeline')
                         if hf_pipeline:
                             try:
-                                if not hasattr(self, '_summary_pipe'):
-                                    self._summary_pipe = hf_pipeline('summarization', model='facebook/bart-large-cnn')
-                                src = (literal_translation or translation_text or text)[:4000]
-                                summary_chunks = self._summary_pipe(src, max_length=180, min_length=40, do_sample=False)
-                                if summary_chunks and isinstance(summary_chunks, list):
-                                    high_level_translation = summary_chunks[0].get('summary_text', '')
+                                # Always use the Helsinki model's literal_translation as the source if available
+                                src = literal_translation.strip()
+                                
+                                if not src:
+                                    logger.warning("No Helsinki-NLP translation available for high-level summarization, using fallback")
+                                    src = (translation_text or text).strip()
+                                
+                                logger.info(f"Using source for summarization: {src[:50]}...")
+                                
+                                # Skip summarization for very short inputs
+                                if len(src) >= 60:
+                                    if not hasattr(self, '_summary_pipe'):
+                                        logger.info("Loading summarization model: facebook/bart-large-cnn")
+                                        self._summary_pipe = hf_pipeline('summarization', model='facebook/bart-large-cnn')
+                                    
+                                    src = src[:4000]
+                                    # Choose dynamic lengths based on input size (chars proxy)
+                                    max_len = min(180, max(40, len(src) // 4))
+                                    min_len = min(60, max(20, len(src) // 10))
+                                    
+                                    logger.info(f"Performing summarization with min_len={min_len}, max_len={max_len}")
+                                    summary_chunks = self._summary_pipe(src, max_length=max_len, min_length=min_len, do_sample=False)
+                                    
+                                    if summary_chunks and isinstance(summary_chunks, list):
+                                        high_level_translation = summary_chunks[0].get('summary_text', '')
+                                        logger.info(f"Summarization successful: {high_level_translation[:50]}...")
+                                    else:
+                                        logger.warning(f"Unexpected summarization output format: {type(summary_chunks)}")
+                                else:
+                                    logger.info(f"Input too short for summarization ({len(src)} chars), using literal translation")
+                                    high_level_translation = src
                             except Exception as sum_err:
-                                logger.warning(f"High-level summarization failed: {sum_err}")
+                                logger.error(f"High-level summarization failed: {sum_err}")
                 except Exception as outer_tr_err:
                     logger.warning(f"Extended translation pipeline error: {outer_tr_err}")
 

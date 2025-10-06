@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, TextInput, ScrollView, PanResponder } from 'react-native';
 import { VLCPlayer } from 'react-native-vlc-media-player';
 import { CCTV_USER, CCTV_PASSWORD, API_URL } from '../../util/env';
+import { getPlayerConfig } from '../../util/apiClient';
 
 export default function DVRScreen({ route }) {
   const playerRef = useRef(null);
@@ -41,6 +42,14 @@ export default function DVRScreen({ route }) {
   // Auto-stop via media-time (stop at expected end if provided)
   const [countdownMs, setCountdownMs] = useState(null);
   const [endedByTimer, setEndedByTimer] = useState(false);
+  const [autoStopEnabled, setAutoStopEnabled] = useState(true);
+  const [playerConfig, setPlayerConfig] = useState({
+    auto_stop_playback: true,
+    player_controls: true,
+    progress_bar: true,
+    loading_indicator: true
+  });
+  const autoStopTimerRef = useRef(null);
   // Zoom & Pan state
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
@@ -117,7 +126,11 @@ export default function DVRScreen({ route }) {
   ];
 
   const clearAutoStopTimers = useCallback(() => {
-    // no-op: timers removed; placeholder in case future server-driven control is added
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+    setCountdownMs(null);
   }, []);
 
   const pausePlayback = useCallback(() => {
@@ -257,6 +270,71 @@ export default function DVRScreen({ route }) {
     setTranslate({ x: 0, y: 0 });
   }, [manualUrl, altIndex, reloadCount, useTcp, networkCachingMs, clearAutoStopTimers]);
 
+  // Fetch player configuration from server
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const config = await getPlayerConfig();
+        setPlayerConfig(config);
+        setAutoStopEnabled(config.auto_stop_playback);
+      } catch (error) {
+        console.warn('Failed to load player configuration:', error);
+      }
+    };
+    
+    loadConfig();
+  }, []);
+  
+  // Handle auto-stop functionality when expected playback time is available
+  useEffect(() => {
+    // Only apply auto-stop if enabled and we have expected duration data
+    if (!autoStopEnabled || mode !== 'playback' || !expected) return;
+    
+    // Clear any existing auto-stop timers
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+    
+    // Calculate duration from expected values
+    const durationMs = getExpectedDurationMs();
+    if (durationMs <= 0) return;
+    
+    console.log(`Setting up auto-stop timer for ${durationMs}ms (${durationMs/1000}s)`);
+    
+    // Set countdown for UI display
+    setCountdownMs(durationMs);
+    
+    // Set up timer for auto-stop
+    autoStopTimerRef.current = setTimeout(() => {
+      if (isPlaying) {
+        pausePlayback();
+        console.log('Auto-stop timer completed - pausing playback');
+      }
+      setCountdownMs(null);
+    }, durationMs);
+    
+    // Update countdown every second for UI display
+    const intervalId = setInterval(() => {
+      setCountdownMs(prev => {
+        if (prev === null || prev <= 0) {
+          clearInterval(intervalId);
+          return null;
+        }
+        return prev - 1000;
+      });
+    }, 1000);
+    
+    return () => {
+      // Clean up on unmount or when dependencies change
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+        autoStopTimerRef.current = null;
+      }
+      clearInterval(intervalId);
+    };
+  }, [autoStopEnabled, mode, expected, isPlaying, getExpectedDurationMs, pausePlayback]);
+
   // Cleanup on unmount
   useEffect(() => () => clearAutoStopTimers(), [clearAutoStopTimers]);
 
@@ -286,13 +364,20 @@ export default function DVRScreen({ route }) {
               <Text style={styles.debugLabel}>- Start: <Text style={styles.debugValue}>{expected.start_local_iso || '-'}</Text></Text>
               <Text style={styles.debugLabel}>- End: <Text style={styles.debugValue}>{expected.end_local_iso || '-'}</Text></Text>
               <Text style={styles.debugLabel}>- Duration: <Text style={styles.debugValue}>{formatMs(getExpectedDurationMs())}</Text></Text>
-              <Text style={styles.debugLabel}>- Auto-stop: <Text style={styles.debugValue}>on (media-time)</Text></Text>
-              <Text style={styles.debugLabel}>- Remaining: <Text style={styles.debugValue}>{formatMs(countdownMs)}</Text></Text>
+              <Text style={styles.debugLabel}>- Auto-stop: <Text style={styles.debugValue}>{autoStopEnabled ? 'on (media-time)' : 'off'}</Text></Text>
+              {autoStopEnabled && (
+                <Text style={styles.debugLabel}>- Remaining: <Text style={styles.debugValue}>{formatMs(countdownMs)}</Text></Text>
+              )}
               {endedByTimer && (
                 <Text style={[styles.debugLabel, { color: '#6cf' }]}>Reached end of requested window. Paused.</Text>
               )}
             </>
           )}
+          <Text style={styles.debugLabel}>Player Config:</Text>
+          <Text style={styles.debugLabel}>- Auto-stop: <Text style={styles.debugValue}>{playerConfig.auto_stop_playback ? 'Enabled' : 'Disabled'}</Text></Text>
+          <Text style={styles.debugLabel}>- Controls: <Text style={styles.debugValue}>{playerConfig.player_controls ? 'Visible' : 'Hidden'}</Text></Text>
+          <Text style={styles.debugLabel}>- Progress bar: <Text style={styles.debugValue}>{playerConfig.progress_bar ? 'Visible' : 'Hidden'}</Text></Text>
+          <Text style={styles.debugLabel}>- Loading indicator: <Text style={styles.debugValue}>{playerConfig.loading_indicator ? 'Visible' : 'Hidden'}</Text></Text>
           {alternates.length > 1 && mode==='playback' && !manualUrl && (
             <Text style={styles.debugLabel}>Alternate {altIndex+1}/{alternates.length}</Text>
           )}
@@ -335,6 +420,18 @@ export default function DVRScreen({ route }) {
             <TouchableOpacity style={styles.smallBtn} onPress={() => { setScale(1); setTranslate({ x: 0, y: 0 }); baseScaleRef.current = 1; lastPanRef.current = { x: 0, y: 0 }; }}>
               <Text style={styles.smallBtnText}>Reset Zoom</Text>
             </TouchableOpacity>
+            {mode === 'playback' && expected && (
+              <TouchableOpacity 
+                style={[styles.smallBtn, { backgroundColor: autoStopEnabled ? '#2d6cdf' : '#555' }]} 
+                onPress={() => { 
+                  const newValue = !autoStopEnabled; 
+                  setAutoStopEnabled(newValue); 
+                  if (!newValue) clearAutoStopTimers();
+                }}
+              >
+                <Text style={styles.smallBtnText}>Auto-Stop: {autoStopEnabled ? 'ON' : 'OFF'}</Text>
+              </TouchableOpacity>
+            )}
             {alternates.length > 1 && mode==='playback' && !manualUrl && (
               <TouchableOpacity style={styles.smallBtn} onPress={() => { setAltIndex(i => (i + 1) % alternates.length); setReloadCount(c=>c+1); }}>
                 <Text style={styles.smallBtnText}>Next Alt</Text>

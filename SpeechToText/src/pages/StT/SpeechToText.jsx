@@ -20,6 +20,9 @@ const SpeechToText = () => {
     const [serverUrl, setServerUrl] = useState(API_URL);
     const [serverReady, setServerReady] = useState(false);
     const [checkingServer, setCheckingServer] = useState(false);
+    const [showEnglish, setShowEnglish] = useState(false);
+    const [englishText, setEnglishText] = useState('');
+    const [sourceLang, setSourceLang] = useState('en');
 
     const languages = [
         { label: 'English', code: 'en' },
@@ -136,16 +139,27 @@ const SpeechToText = () => {
             if (!response.ok) {
                 throw new Error(`Server error: ${response.status} ${response.statusText}`);
             }
-
             const result = await response.json();
             if (result) {
                 // UI requirement: show text in the spoken language for user display;
                 // backend provides English (nlp_text) for NLP.
                 const lang = (result.language || '').toLowerCase();
+                setSourceLang(lang || 'en');
                 const isNonEnglish = lang && !lang.startsWith('en');
                 const display = isNonEnglish
                     ? (result.text || '')
                     : (result.high_level_translation || result.literal_translation || result.translation_text || result.text);
+
+                // Choose the best available English text for optional viewing
+                const englishCandidate = (
+                    result.nlp_text ||
+                    result.high_level_translation ||
+                    result.literal_translation ||
+                    result.translation_text ||
+                    (lang && lang.startsWith('en') ? result.text : '')
+                );
+                setEnglishText(englishCandidate ? String(englishCandidate).trim() : '');
+                setShowEnglish(false); // default hidden on each new result
                 setRecognizedText(display ? display.trim() : 'No speech detected in the audio.');
                 setNlpResult(result.nlp || null);
                 setCommandText(result.command_text || '');
@@ -339,6 +353,26 @@ const SpeechToText = () => {
                     {recognizedText || 'Your speech will appear here...'}
                 </Text>
             </View>
+
+            {/* Optional toggle to view English (translated) in addition to original */}
+            {(sourceLang && !sourceLang.startsWith('en') && englishText) ? (
+                <>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                        <Button
+                            title={showEnglish ? 'Hide English' : 'Show English'}
+                            onPress={() => setShowEnglish(!showEnglish)}
+                            color={showEnglish ? '#6c757d' : '#007bff'}
+                        />
+                        <Text style={{ marginLeft: 12 }}>English: {showEnglish ? 'ON' : 'OFF'}</Text>
+                    </View>
+                    {showEnglish && (
+                        <View style={[styles.resultBox, { backgroundColor: '#f7f9fc', borderColor: '#cfd8dc' }] }>
+                            <Text style={[styles.resultLabel, { marginTop: 0 }]}>English (for your reference):</Text>
+                            <Text style={styles.resultText}>{englishText}</Text>
+                        </View>
+                    )}
+                </>
+            ) : null}
 
             {nlpResult && (
                 <View style={[styles.resultBox, { backgroundColor: '#eef6ff', borderColor: '#90caf9' }] }>
