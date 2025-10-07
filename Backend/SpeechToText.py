@@ -573,8 +573,17 @@ class WhisperSpeechToText:
                     logger.warning(f"Extended translation pipeline error: {outer_tr_err}")
 
             # Choose English text for NLP downstream while keeping original for UI
-            nlp_text = (translation_text.strip() if (final_language != 'en' and translation_text.strip()) else text.strip())
-            nlp_language = 'en' if final_language != 'en' else 'en'
+            # Prefer high_level -> literal -> whisper translate for non-English inputs
+            if final_language != 'en':
+                nlp_text = (
+                    (high_level_translation or '').strip()
+                    or (literal_translation or '').strip()
+                    or (translation_text or '').strip()
+                    or text.strip()
+                )
+            else:
+                nlp_text = text.strip()
+            nlp_language = 'en'
 
             return {
                 "text": text.strip(),

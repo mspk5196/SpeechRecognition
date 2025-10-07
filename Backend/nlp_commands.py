@@ -282,14 +282,14 @@ class LocalNLP:
                 break
 
         # New dynamic patterns (numeric range without am/pm, single from time, X in the morning ... )
-        # Accept both ':' and '.' as time separators
-        numeric_range = re.search(r"\bfrom\s+(\d{1,2})(?:[:.](\d{2}))?\s*(?:to|-|until|till)\s+(\d{1,2})(?:[:.](\d{2}))?\b", text_lc)
-        single_from = re.search(r"\bfrom\s+(\d{1,2})(?:[:.](\d{2}))?\b(?!\s*(?:to|-|until|till))", text_lc)
+        # Accept ':', '.', and one or two digit minutes
+        numeric_range = re.search(r"\bfrom\s+(\d{1,2})(?:[:.](\d{1,2}))?\s*(?:to|-|until|till)\s+(\d{1,2})(?:[:.](\d{1,2}))?\b", text_lc)
+        single_from = re.search(r"\bfrom\s+(\d{1,2})(?:[:.](\d{1,2}))?\b(?!\s*(?:to|-|until|till))", text_lc)
         pod_phrases = {
-            'morning': re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s+in\s+the\s+morning\b", text_lc),
-            'afternoon': re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s+in\s+the\s+afternoon\b", text_lc),
-            'evening': re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s+in\s+the\s+evening\b", text_lc),
-            'night': re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s+(?:at|in\s+the)\s+night\b", text_lc)
+            'morning': re.search(r"\b(\d{1,2})(?:[:.](\d{1,2}))?\s+in\s+the\s+morning\b", text_lc),
+            'afternoon': re.search(r"\b(\d{1,2})(?:[:.](\d{1,2}))?\s+in\s+the\s+afternoon\b", text_lc),
+            'evening': re.search(r"\b(\d{1,2})(?:[:.](\d{1,2}))?\s+in\s+the\s+evening\b", text_lc),
+            'night': re.search(r"\b(\d{1,2})(?:[:.](\d{1,2}))?\s+(?:at|in\s+the)\s+night\b", text_lc)
         }
         # Reverse phrasing: 'evening at 5.38' / 'night at 11' etc.
         pod_reverse = re.search(r"\b(morning|afternoon|evening|night)\s+(?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\b", text_lc)
@@ -317,7 +317,8 @@ class LocalNLP:
         if part_of_day and 'part_of_day' not in entities:
             entities['part_of_day'] = part_of_day
         # Pattern: from 9 am to 10 am / 9am to 10am / 9 am - 10 am
-        time_token = r"\d{1,2}(?::\d{2})?\s*(?:a\.m\.|p\.m\.|am|pm)"
+        # Support dot separator and 1-digit minutes for am/pm forms like '8.1am' -> '08:01'
+        time_token = r"\d{1,2}(?::|\.)\d{1,2}\s*(?:a\.m\.|p\.m\.|am|pm)|\d{1,2}\s*(?:a\.m\.|p\.m\.|am|pm)"
         range_match = re.search(rf"from\s+({time_token})\s+to\s+({time_token})", text_lc)
         if not range_match:
             range_match = re.search(rf"({time_token})\s*(?:-|to)\s*({time_token})", text_lc)
@@ -344,31 +345,31 @@ class LocalNLP:
                     entities['start_time'] = f"{hour:02d}:00"
 
         # Single times (collect if not already captured)
-        all_times = re.findall(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.m\.|p\.m\.|am|pm)\b", text_lc)
+        all_times = re.findall(r"\b(\d{1,2})(?:[:.](\d{1,2}))?\s*(a\.m\.|p\.m\.|am|pm)\b", text_lc)
         if all_times and 'start_time' not in entities:
             if len(all_times) == 1:
                 h, m, ap = all_times[0]
-                minute = m or '00'
+                minute = (m or '00').zfill(2)
                 entities['time'] = f"{h}:{minute}{ap.replace('.', '')}"
             else:
                 h1,m1,ap1 = all_times[0]
                 h2,m2,ap2 = all_times[-1]
-                entities['start_time'] = f"{h1}:{m1 or '00'}{ap1}"
-                entities['end_time'] = f"{h2}:{m2 or '00'}{ap2}"
+                entities['start_time'] = f"{h1}:{(m1 or '00').zfill(2)}{ap1}"
+                entities['end_time'] = f"{h2}:{(m2 or '00').zfill(2)}{ap2}"
 
         # Apply numeric_range if present and no explicit am/pm times already
         if numeric_range and 'start_time' not in entities and 'end_time' not in entities:
             h1 = int(numeric_range.group(1)); m1 = numeric_range.group(2) or '00'
             h2 = int(numeric_range.group(3)); m2 = numeric_range.group(4) or '00'
             if 0 <= h1 <= 23 and 0 <= h2 <= 23:
-                entities['start_time'] = f"{h1:02d}:{m1 if len(m1)==2 else '00'}"
-                entities['end_time'] = f"{h2:02d}:{m2 if len(m2)==2 else '00'}"
+                entities['start_time'] = f"{h1:02d}:{(m1 if len(m1)==2 else m1.zfill(2)) if m1 else '00'}"
+                entities['end_time'] = f"{h2:02d}:{(m2 if len(m2)==2 else m2.zfill(2)) if m2 else '00'}"
 
         # Single 'from 10' pattern (no end) -> start_time only
         if single_from and 'start_time' not in entities:
             fh = int(single_from.group(1)); fm = single_from.group(2) or '00'
             if 0 <= fh <= 23:
-                entities['start_time'] = f"{fh:02d}:{fm if len(fm)==2 else '00'}"
+                entities['start_time'] = f"{fh:02d}:{(fm if len(fm)==2 else fm.zfill(2)) if fm else '00'}"
 
         # Phrases like '10 in the morning'
         if 'start_time' not in entities:
@@ -379,7 +380,7 @@ class LocalNLP:
                         hh += 12
                     if pod_lbl in {'evening','night'} and 1 <= hh <= 11:
                         hh += 12
-                    entities['start_time'] = f"{hh:02d}:{mm if len(mm)==2 else '00'}"
+                    entities['start_time'] = f"{hh:02d}:{(mm if len(mm)==2 else mm.zfill(2)) if mm else '00'}"
                     entities['part_of_day'] = entities.get('part_of_day', pod_lbl)
                     break
         # Reverse phrasing 'evening at 5.38'
@@ -390,7 +391,7 @@ class LocalNLP:
                 hh += 12
             if pod_lbl in {'evening','night'} and 1 <= hh <= 11:
                 hh += 12
-            entities['start_time'] = f"{hh:02d}:{mm if len(mm)==2 else '00'}"
+            entities['start_time'] = f"{hh:02d}:{(mm if len(mm)==2 else mm.zfill(2)) if mm else '00'}"
             entities['part_of_day'] = entities.get('part_of_day', pod_lbl)
         # 'at 5.38' with known part_of_day
         if 'start_time' not in entities and part_of_day and at_time:
@@ -399,7 +400,7 @@ class LocalNLP:
                 hh += 12
             if part_of_day in {'evening','night'} and 1 <= hh <= 11:
                 hh += 12
-            entities['start_time'] = f"{hh:02d}:{mm if len(mm)==2 else '00'}"
+            entities['start_time'] = f"{hh:02d}:{(mm if len(mm)==2 else mm.zfill(2)) if mm else '00'}"
 
         # Direction detection for PTZ
         if any(w in text_lc for w in ["left", "right", "up", "down"]):
@@ -738,16 +739,16 @@ class LocalNLP:
 
     @staticmethod
     def _to_24h(t_ampm: str) -> str:
-        """Convert times like '9am','9:15am','09 a.m.','12pm','12:30 p.m.' to HH:MM 24h."""
+        """Convert times like '9am','9:15am','9.1am','09 a.m.','12pm','12:30 p.m.' to HH:MM 24h."""
         if not t_ampm:
             return t_ampm
         t = t_ampm.lower().replace('.', '')  # remove dots in a.m./p.m.
         t = re.sub(r"\s+", "", t)
-        # Patterns: 9am, 9:15am, 09am, 09:05pm
-        m = re.match(r"^(\d{1,2})(?::(\d{2}))?(am|pm)$", t)
+        # Patterns: 9am, 9:15am, 9.1am, 09am, 09:05pm, 8-1am
+        m = re.match(r"^(\d{1,2})(?::|\.|-)?(\d{1,2})?(am|pm)$", t)
         if not m:
             return t_ampm  # return original if no match (already normalized?)
-        h = int(m.group(1)); minute = m.group(2) or '00'; ap = m.group(3)
+        h = int(m.group(1)); minute = (m.group(2) or '00').zfill(2); ap = m.group(3)
         if ap == 'am':
             if h == 12: h = 0
         else:

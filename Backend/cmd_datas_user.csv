@@ -1351,3 +1351,7 @@ Playback starts from 8 am to 10 am,playback,start_time=08:00;end_time=10:00;pred
 From 8 am to 10 pm  camera playback is done.,playback,start_time=08:00;end_time=22:00;pred_score=0.8358
 Playback from 8am to 8.30am,playback,start_time=08:00;end_time=08:30;pred_score=0.9747
 From 8am to 8.30am with playback,playback,start_time=08:00;end_time=08:30;pred_score=0.9069
+So  payback from morning 8am to 8.1am.,playback,part_of_day=morning;start_time=08:00;end_time=01:00;pred_score=0.9059
+Playback code from 8am to 10pm,playback,start_time=08:00;end_time=22:00;pred_score=0.9045
+Playback from 8 am to 9 am,playback,start_time=08:00;end_time=09:00;pred_score=0.9209
+Show playback from morning 8 a.m. To 8 1 a.m,playback,part_of_day=morning;start_time=08:00;end_time=09:00;fallback_strategy=plus1h;pred_score=0.9573
